@@ -47,6 +47,7 @@ export function App() {
             battleState={game.battleState}
             wallStatus={game.wallStatus}
             lastFiredStructureIds={game.lastFiredStructureIds}
+            lastQuirkEvents={game.lastQuirkEvents}
           />
 
           {/* Tactical Instructions & Mechanics Guide */}

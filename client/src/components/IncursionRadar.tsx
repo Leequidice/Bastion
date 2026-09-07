@@ -111,6 +111,9 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-400 animate-bounce" />
                 <span className="text-sm font-bold text-red-200">{titan.name}</span>
+                <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                  {titan.class}
+                </span>
               </div>
               <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-red-900/60 text-red-300">
                 Marching
@@ -133,6 +136,22 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
                 />
               </div>
             </div>
+
+            {titan.minions.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] text-cyan-400">
+                  Shielded by {titan.minions.length} minion{titan.minions.length === 1 ? "" : "s"} — she takes no damage until they fall
+                </span>
+                {titan.minions.map((m) => (
+                  <div key={m.id} className="w-full h-1.5 bg-slate-900/80 rounded border border-slate-800 overflow-hidden">
+                    <div
+                      className="h-full bg-cyan-400 transition-all"
+                      style={{ width: `${Math.max(0, (m.hp / m.maxHp) * 100)}%` }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div>
               <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
@@ -157,6 +176,13 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
                 <span className="text-cyan-400 font-bold truncate block">{archetypeInfo.weakness}</span>
               </div>
             </div>
+
+            {titan.quirkTimerMs !== null && (
+              <div className="bg-slate-900/80 p-2 rounded border border-slate-800 text-xs font-mono flex items-center justify-between">
+                <span className="text-slate-400 text-[10px]">Next quirk trigger</span>
+                <span className="text-orange-400 font-bold">{(titan.quirkTimerMs / 1000).toFixed(1)}s</span>
+              </div>
+            )}
           </div>
         )
       )}

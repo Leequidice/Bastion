@@ -3,7 +3,7 @@ import { BUILDINGS, CREDITCOIN_TESTNET, TICK_MS } from "../lib/constants";
 import { PlacedStructure } from "../components/CityCanvas";
 import { Resources, MarketConditionState } from "../components/ResourceBar";
 import { generateAttestationPayload, AttestationPayload } from "../lib/attestationHelper";
-import { createBattleStateForLevel, tickBattle, BattleState } from "../lib/battleEngine";
+import { createBattleStateForLevel, tickBattle, BattleState, QuirkEvents } from "../lib/battleEngine";
 import confetti from "canvas-confetti";
 import { ethers } from "ethers";
 
@@ -134,6 +134,7 @@ export function useBastionGame() {
   const [totalRepelled, setTotalRepelled] = useState(0);
   const [totalBreached, setTotalBreached] = useState(0);
   const [lastFiredStructureIds, setLastFiredStructureIds] = useState<string[]>([]);
+  const [lastQuirkEvents, setLastQuirkEvents] = useState<QuirkEvents | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isHarvesting, setIsHarvesting] = useState(false);
 
@@ -324,13 +325,14 @@ export function useBastionGame() {
       const current = battleStateRef.current;
       if (!current || current.matchStatus !== "active") return;
 
-      const { state: nextState, structures: nextStructures, firedStructureIds } = tickBattle(
+      const { state: nextState, structures: nextStructures, firedStructureIds, quirkEvents } = tickBattle(
         current,
         structuresRef.current
       );
       setBattleState(nextState);
       setStructures(nextStructures);
       setLastFiredStructureIds(firedStructureIds);
+      setLastQuirkEvents(quirkEvents);
     }, TICK_MS);
 
     return () => clearInterval(interval);
@@ -438,6 +440,7 @@ export function useBastionGame() {
     wallStatus,
     battleState,
     lastFiredStructureIds,
+    lastQuirkEvents,
     totalRepelled,
     totalBreached,
     totalDefensePower,

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
-import { BUILDINGS, COLOSSI_ARCHETYPES } from "../lib/constants";
-import { BattleState } from "../lib/battleEngine";
+import { BUILDINGS, COLOSSI_ARCHETYPES, GRID_SIZE, TILE_SIZE, PADDING, LANE_GRID_COLUMN } from "../lib/constants";
+import { BattleState, QuirkEvents } from "../lib/battleEngine";
 
 export interface PlacedStructure {
   id: string;
@@ -55,17 +55,16 @@ interface CityCanvasProps {
   battleState: BattleState | null;
   wallStatus: "standing" | "breached";
   lastFiredStructureIds: string[];
+  lastQuirkEvents: QuirkEvents | null;
 }
 
-const GRID_SIZE = 12;
-const TILE_SIZE = 48; // 12 * 48 = 576px canvas
-const PADDING = 40;
 const CANVAS_WIDTH = GRID_SIZE * TILE_SIZE + PADDING * 2;
 const CANVAS_HEIGHT = GRID_SIZE * TILE_SIZE + PADDING * 2;
 
-// The Titan marches down a fixed vertical lane from just above the grid to the
-// Wall just below it; its distance-based `progress` (0..1) interpolates here.
-const LANE_X = PADDING + (GRID_SIZE * TILE_SIZE) / 2;
+// The Titan marches down a fixed vertical lane (bound to LANE_GRID_COLUMN) from
+// just above the grid to the Wall just below it; its distance-based `progress`
+// (0..1) interpolates here.
+const LANE_X = PADDING + LANE_GRID_COLUMN * TILE_SIZE + TILE_SIZE / 2;
 const LANE_SPAWN_Y = 18;
 const LANE_WALL_Y = PADDING + GRID_SIZE * TILE_SIZE + 18;
 
@@ -91,12 +90,46 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
   battleState,
   wallStatus,
   lastFiredStructureIds,
+  lastQuirkEvents,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [hoveredTile, setHoveredTile] = useState<{ x: number; y: number } | null>(null);
   const projectilesRef = useRef<Projectile[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const damageNumbersRef = useRef<DamageNumber[]>([]);
+  const sprintFlashRef = useRef(0); // alpha of the Armored sprint flash, fades each frame
+
+  // React to this tick's quirk events: Armored sprint flash + Beast strike projectile
+  useEffect(() => {
+    if (!lastQuirkEvents || !battleState) return;
+
+    if (lastQuirkEvents.sprinted) {
+      sprintFlashRef.current = 1;
+    }
+
+    if (lastQuirkEvents.beastAttackTargetId) {
+      const target = structures.find((s) => s.id === lastQuirkEvents.beastAttackTargetId);
+      if (target) {
+        const progress = 1 - battleState.distanceRemaining / battleState.totalDistance;
+        const startX = LANE_X;
+        const startY = LANE_SPAWN_Y + (LANE_WALL_Y - LANE_SPAWN_Y) * progress;
+        const endX = PADDING + target.gridX * TILE_SIZE + TILE_SIZE / 2;
+        const endY = PADDING + target.gridY * TILE_SIZE + TILE_SIZE / 2;
+        projectilesRef.current.push({
+          startX,
+          startY,
+          currentX: startX,
+          currentY: startY,
+          targetX: endX,
+          targetY: endY,
+          color: "#dc2626",
+          damage: battleState.titan.siegePower,
+          progress: 0,
+          type: "beam",
+        });
+      }
+    }
+  }, [lastQuirkEvents, battleState, structures]);
 
   // Trigger projectiles from every structure that fired this battle tick
   useEffect(() => {
@@ -174,6 +207,13 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
       ctx.setLineDash([4, 4]);
       ctx.strokeRect(PADDING - 4, PADDING - 4, GRID_SIZE * TILE_SIZE + 8, GRID_SIZE * TILE_SIZE + 8);
       ctx.setLineDash([]);
+
+      // Armored sprint flash — briefly highlights the lane column, fading out
+      if (sprintFlashRef.current > 0) {
+        ctx.fillStyle = `rgba(239, 68, 68, ${sprintFlashRef.current * 0.4})`;
+        ctx.fillRect(PADDING + LANE_GRID_COLUMN * TILE_SIZE, PADDING, TILE_SIZE, GRID_SIZE * TILE_SIZE);
+        sprintFlashRef.current = Math.max(0, sprintFlashRef.current - 0.05);
+      }
 
       // 2. Draw Energy Conduit Lines between Pylons & Citadel
       const pylonCoords: Array<{ x: number; y: number }> = [];
@@ -314,6 +354,16 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
         const cy = LANE_SPAWN_Y + (LANE_WALL_Y - LANE_SPAWN_Y) * progress;
         const archetypeInfo = COLOSSI_ARCHETYPES[battleState.titan.archetype] || COLOSSI_ARCHETYPES[0];
 
+        // Colossus: pulsing radioactive ring, intensifying as it nears the Wall
+        if (battleState.titan.class === "colossus") {
+          const pulse = 4 * Math.sin(Date.now() / 150);
+          ctx.strokeStyle = `rgba(132, 204, 22, ${0.3 + progress * 0.5})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 42 + pulse, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
         // Threat Aura
         ctx.fillStyle = "rgba(239, 68, 68, 0.2)";
         ctx.beginPath();
@@ -333,11 +383,31 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
         ctx.arc(cx + 6, cy - 4, 3, 0, Math.PI * 2);
         ctx.fill();
 
-        // Name & Level Badge
+        // Female: shielding minions, drifting either side of her
+        battleState.titan.minions.forEach((minion, i) => {
+          const mx = cx + (i === 0 ? -34 : 34);
+          const my = cy + 8;
+          ctx.fillStyle = "#22d3ee";
+          ctx.beginPath();
+          ctx.arc(mx, my, 9, 0, Math.PI * 2);
+          ctx.fill();
+
+          const minionHpPercent = Math.max(0, minion.hp / minion.maxHp);
+          ctx.fillStyle = "#1e293b";
+          ctx.fillRect(mx - 12, my + 12, 24, 3);
+          ctx.fillStyle = "#22c55e";
+          ctx.fillRect(mx - 12, my + 12, 24 * minionHpPercent, 3);
+        });
+
+        // Name, Level & Class Badge
         ctx.fillStyle = "#ffffff";
         ctx.font = "bold 11px system-ui";
         ctx.textAlign = "center";
-        ctx.fillText(`${battleState.titan.name} (Lv.${battleState.titan.level})`, cx, cy - 30);
+        ctx.fillText(
+          `${battleState.titan.name} (Lv.${battleState.titan.level}) [${battleState.titan.class.toUpperCase()}]`,
+          cx,
+          cy - 30
+        );
 
         // Titan Health Bar
         const barWidth = 60;

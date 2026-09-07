@@ -123,40 +123,55 @@ export const BUILDINGS: Record<string, BuildingDefinition> = {
   },
 };
 
+export type TitanClass = "colossus" | "armored" | "female" | "beast";
+
 export const COLOSSI_ARCHETYPES = [
   {
     type: 0,
-    name: "Mountainbreaker",
-    title: "The Earthshaker",
-    description: "A hulking behemoth of petrified rock that smashes outer ramparts with crushing shockwaves.",
+    name: "Mountain Colossus",
+    title: "The Fallout Breaker",
+    description:
+      "A hulking radioactive behemoth whose fallout intensifies the closer it gets, irradiating every structure in the settlement.",
     color: "#f97316", // Orange
     weakness: "Sunstone Plasma",
+    class: "colossus" as TitanClass,
   },
   {
     type: 1,
     name: "Dread Strider",
     title: "The Skittering Nightmare",
-    description: "A rapid multi-limbed monstrosity able to scale defenses and snipe defensive watchtowers.",
+    description: "A rapid predator that lashes out at the nearest defense every few seconds while closing the distance.",
     color: "#a855f7", // Purple
     weakness: "Ballista Bolts",
+    class: "beast" as TitanClass,
   },
   {
     type: 2,
     name: "Ironclad Gorger",
     title: "The Ore Devourer",
-    description: "Plated in natural slag armor, it consumes grain silos and raw stone reserves upon breach.",
+    description: "Plated in heavy slag armor; periodically breaks into a devastating sprint that flattens anything in its path.",
     color: "#eab308", // Yellow
     weakness: "Aegis Ramparts",
+    class: "armored" as TitanClass,
   },
   {
     type: 3,
     name: "Tempest Goliath",
     title: "The Storm Bringer",
-    description: "Crackling with uncontrolled lightning, it disrupts energy grids and defense targeting.",
+    description: "Crackling with lightning, she calls forth two lightning wisps to shield herself from focused fire.",
     color: "#06b6d4", // Cyan
     weakness: "Concentrated Fire",
+    class: "female" as TitanClass,
   },
 ];
+
+// --- Grid & Lane Geometry (shared by CityCanvas and battleEngine) ---
+export const GRID_SIZE = 12;
+export const TILE_SIZE = 48; // 12 * 48 = 576px canvas
+export const PADDING = 40;
+// The Titan always marches down this fixed grid column — matches the default
+// Citadel/Ballista/Rampart column so "in its path" effects land somewhere meaningful.
+export const LANE_GRID_COLUMN = 5;
 
 // --- Titan Wave Scaling (tunable) ---
 // Levels are uncapped. Each level compounds HP by HP_GROWTH_RATE (70% per the
@@ -170,3 +185,19 @@ export const LANE_GROWTH_PER_LEVEL = 40; // additional units per level
 export const BASE_TITAN_SPEED = 6; // distance units per tick
 export const SPEED_GROWTH_RATE = 0.015; // +1.5% speed per level, compounding
 export const TICK_MS = 400; // battle tick interval
+
+// --- Defense Cooldown Scaling (tunable) ---
+// Stronger (higher-level) defenses hit harder but fire less often, capped so no
+// structure ever takes longer than MAX_COOLDOWN_MS between shots.
+export const MAX_COOLDOWN_MS = 10000; // 10s hard cap
+export const MAX_COOLDOWN_TICKS = Math.round(MAX_COOLDOWN_MS / TICK_MS);
+export const COOLDOWN_GROWTH_PER_LEVEL = 1; // +1 tick of cooldown per upgrade level
+
+// --- Titan Class Quirks (tunable) ---
+export const RADIOACTIVE_BASE_DAMAGE_PER_TICK = 40; // Colossus: scaled by proximity (0..1)
+export const ARMORED_HP_BONUS_MULTIPLIER = 1.1; // +10% HP
+export const ARMORED_SPRINT_ROWS = 4;
+export const ARMORED_TIMER_SEQUENCE_MS = [15000, 20000, 25000]; // holds at 25000 after
+export const FEMALE_TIMER_SEQUENCE_MS = [20000, 30000, 40000]; // holds at 40000 after
+export const FEMALE_MINION_HP_RATIO = 0.2; // each minion = 20% of the Titan's max HP
+export const BEAST_ATTACK_INTERVAL_MS = 8000; // fixed, no escalation

@@ -1,11 +1,23 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { usePrivy, useWallets, useLinkAccount } from "@privy-io/react-auth";
 import { BUILDINGS, CREDITCOIN_TESTNET, TICK_MS } from "../lib/constants";
 import { PlacedStructure } from "../components/CityCanvas";
 import { Resources, MarketConditionState } from "../components/ResourceBar";
 import { generateAttestationPayload, AttestationPayload } from "../lib/attestationHelper";
 import { createBattleStateForLevel, tickBattle, BattleState, QuirkEvents } from "../lib/battleEngine";
+import { getState, saveState } from "../lib/api";
 import confetti from "canvas-confetti";
 import { ethers } from "ethers";
+
+interface SavedGameState {
+  structures: PlacedStructure[];
+  resources: Resources;
+  level: number;
+  highestLevelReached: number;
+  wallStatus: "standing" | "breached";
+  totalRepelled: number;
+  totalBreached: number;
+}
 
 export function useBastionGame() {
   // Settlement Structures Grid
@@ -153,11 +165,15 @@ export function useBastionGame() {
   const [latestPayload, setLatestPayload] = useState<AttestationPayload | null>(null);
   const [isProofModalOpen, setIsProofModalOpen] = useState(false);
 
-  // Web3 Wallet State
+  // Web3 Wallet State (populated from Privy)
+  const { ready, authenticated, login, logout, getAccessToken } = usePrivy();
+  const { wallets } = useWallets();
+  const { linkWallet } = useLinkAccount();
   const [account, setAccount] = useState<string | null>(null);
   const [balance, setBalance] = useState("12.45");
   const [networkId, setNetworkId] = useState<number | null>(CREDITCOIN_TESTNET.chainId);
   const [isSandboxMode, setIsSandboxMode] = useState(true);
+  const [isStateLoaded, setIsStateLoaded] = useState(false);
 
   // Compute Total Defense Power from Active Structures
   const totalDefensePower = structures.reduce((acc, s) => {
@@ -372,60 +388,160 @@ export function useBastionGame() {
     }
   }, [matchStatus]);
 
-  // Connect Web3 Wallet
-  const handleConnectWallet = useCallback(async () => {
-    if (typeof window !== "undefined" && (window as any).ethereum) {
+  // Connect via Privy (Google / Twitter / Discord / external wallet)
+  const handleConnectWallet = useCallback(() => {
+    login();
+  }, [login]);
+
+  // Log out of the current Privy session entirely
+  const handleLogout = useCallback(() => {
+    logout();
+  }, [logout]);
+
+  // Link an additional wallet to the current account without logging out
+  const handleConnectAnotherAccount = useCallback(() => {
+    linkWallet();
+  }, [linkWallet]);
+
+  // Derive account/network/balance from the active Privy wallet (embedded or external)
+  useEffect(() => {
+    const wallet = wallets[0];
+    if (!wallet) return;
+    let cancelled = false;
+
+    (async () => {
       try {
-        const provider = new ethers.BrowserProvider((window as any).ethereum);
-        const accounts = await provider.send("eth_requestAccounts", []);
+        const injected = await wallet.getEthereumProvider();
+        const provider = new ethers.BrowserProvider(injected);
         const net = await provider.getNetwork();
-        setAccount(accounts[0]);
+        const bal = await provider.getBalance(wallet.address);
+        if (cancelled) return;
+        setAccount(wallet.address);
         setNetworkId(Number(net.chainId));
-        const bal = await provider.getBalance(accounts[0]);
         setBalance(Number(ethers.formatEther(bal)).toFixed(2));
       } catch (err) {
-        console.error("Wallet connection failed:", err);
+        console.error("Failed to read wallet state:", err);
       }
-    } else {
-      // Demo simulated account
-      setAccount("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
-      setNetworkId(CREDITCOIN_TESTNET.chainId);
-      setBalance("12.45");
-    }
-  }, []);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [wallets]);
 
   // Switch to Creditcoin CC3 Testnet
   const handleSwitchNetwork = useCallback(async () => {
-    if (typeof window !== "undefined" && (window as any).ethereum) {
-      try {
-        await (window as any).ethereum.request({
-          method: "wallet_switchEthereumChain",
-          params: [{ chainId: CREDITCOIN_TESTNET.chainIdHex }],
+    const wallet = wallets[0];
+    if (!wallet) return;
+
+    try {
+      await wallet.switchChain(CREDITCOIN_TESTNET.chainId);
+      setNetworkId(CREDITCOIN_TESTNET.chainId);
+      return;
+    } catch (_) {
+      // Fall through to manual EIP-3326/3085 flow for wallets Privy can't switch directly
+    }
+
+    try {
+      const injected = await wallet.getEthereumProvider();
+      await injected.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: CREDITCOIN_TESTNET.chainIdHex }],
+      });
+      setNetworkId(CREDITCOIN_TESTNET.chainId);
+    } catch (switchError: any) {
+      if (switchError.code === 4902) {
+        const injected = await wallet.getEthereumProvider();
+        await injected.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: CREDITCOIN_TESTNET.chainIdHex,
+              chainName: CREDITCOIN_TESTNET.chainName,
+              rpcUrls: [CREDITCOIN_TESTNET.rpcUrl],
+              nativeCurrency: {
+                name: CREDITCOIN_TESTNET.currencyName,
+                symbol: CREDITCOIN_TESTNET.currencySymbol,
+                decimals: CREDITCOIN_TESTNET.decimals,
+              },
+              blockExplorerUrls: [CREDITCOIN_TESTNET.blockExplorerUrl],
+            },
+          ],
         });
         setNetworkId(CREDITCOIN_TESTNET.chainId);
-      } catch (switchError: any) {
-        if (switchError.code === 4902) {
-          await (window as any).ethereum.request({
-            method: "wallet_addEthereumChain",
-            params: [
-              {
-                chainId: CREDITCOIN_TESTNET.chainIdHex,
-                chainName: CREDITCOIN_TESTNET.chainName,
-                rpcUrls: [CREDITCOIN_TESTNET.rpcUrl],
-                nativeCurrency: {
-                  name: CREDITCOIN_TESTNET.currencyName,
-                  symbol: CREDITCOIN_TESTNET.currencySymbol,
-                  decimals: CREDITCOIN_TESTNET.decimals,
-                },
-                blockExplorerUrls: [CREDITCOIN_TESTNET.blockExplorerUrl],
-              },
-            ],
-          });
-          setNetworkId(CREDITCOIN_TESTNET.chainId);
-        }
       }
     }
-  }, []);
+  }, [wallets]);
+
+  // Hydrate saved progress from Redis (via the backend) once the user is authenticated
+  useEffect(() => {
+    if (!ready || !authenticated) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const token = await getAccessToken();
+        if (!token) return;
+        const saved = (await getState(token)) as SavedGameState | null;
+        if (cancelled) return;
+        if (saved) {
+          setStructures(saved.structures);
+          setResources(saved.resources);
+          setLevel(saved.level);
+          setHighestLevelReached(saved.highestLevelReached);
+          setWallStatus(saved.wallStatus);
+          setTotalRepelled(saved.totalRepelled);
+          setTotalBreached(saved.totalBreached);
+        }
+      } catch (err) {
+        console.error("Failed to load saved state:", err);
+      } finally {
+        if (!cancelled) setIsStateLoaded(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, authenticated, getAccessToken]);
+
+  // Autosave progress to Redis (debounced) whenever it changes post-hydration
+  useEffect(() => {
+    if (!authenticated || !isStateLoaded) return;
+
+    const handle = setTimeout(() => {
+      (async () => {
+        try {
+          const token = await getAccessToken();
+          if (!token) return;
+          await saveState(token, {
+            structures,
+            resources,
+            level,
+            highestLevelReached,
+            wallStatus,
+            totalRepelled,
+            totalBreached,
+          } satisfies SavedGameState);
+        } catch (err) {
+          console.error("Failed to save state:", err);
+        }
+      })();
+    }, 1000);
+
+    return () => clearTimeout(handle);
+  }, [
+    authenticated,
+    isStateLoaded,
+    structures,
+    resources,
+    level,
+    highestLevelReached,
+    wallStatus,
+    totalRepelled,
+    totalBreached,
+    getAccessToken,
+  ]);
 
   return {
     structures,
@@ -462,5 +578,7 @@ export function useBastionGame() {
     handleRestart,
     handleConnectWallet,
     handleSwitchNetwork,
+    handleLogout,
+    handleConnectAnotherAccount,
   };
 }

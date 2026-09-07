@@ -24,6 +24,8 @@ export function App() {
         onOpenProofModal={() => game.setIsProofModalOpen(true)}
         isSandboxMode={game.isSandboxMode}
         onToggleSandbox={() => game.setIsSandboxMode(!game.isSandboxMode)}
+        onLogout={game.handleLogout}
+        onConnectAnotherAccount={game.handleConnectAnotherAccount}
       />
 
       {/* Resource & Market Multiplier Bar (Phase 2) */}

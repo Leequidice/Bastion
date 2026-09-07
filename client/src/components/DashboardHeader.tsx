@@ -1,5 +1,16 @@
-import React from "react";
-import { Shield, Radio, Activity, Cpu, ExternalLink } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Shield,
+  Radio,
+  Activity,
+  Cpu,
+  ExternalLink,
+  ChevronDown,
+  LayoutDashboard,
+  LogOut,
+  UserPlus,
+  LifeBuoy,
+} from "lucide-react";
 import { CREDITCOIN_TESTNET } from "../lib/constants";
 
 interface DashboardHeaderProps {
@@ -11,6 +22,8 @@ interface DashboardHeaderProps {
   onOpenProofModal: () => void;
   isSandboxMode: boolean;
   onToggleSandbox: () => void;
+  onLogout: () => void;
+  onConnectAnotherAccount: () => void;
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -22,8 +35,23 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   onOpenProofModal,
   isSandboxMode,
   onToggleSandbox,
+  onLogout,
+  onConnectAnotherAccount,
 }) => {
   const isCreditcoin = networkId === CREDITCOIN_TESTNET.chainId;
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isAccountMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
+        setIsAccountMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isAccountMenuOpen]);
 
   return (
     <header className="w-full bg-slate-950/90 border-b border-slate-800 backdrop-blur-md px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-40">
@@ -94,14 +122,61 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           </div>
         )}
 
-        {/* Wallet Connect Button */}
+        {/* Wallet Connect Button / Account Menu */}
         {account ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 font-mono text-xs">
-            <span className="text-slate-400">{balance} tCTC</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-            <span className="text-cyan-400 font-bold">
-              {account.slice(0, 6)}...{account.slice(-4)}
-            </span>
+          <div className="relative" ref={accountMenuRef}>
+            <button
+              onClick={() => setIsAccountMenuOpen((prev) => !prev)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 font-mono text-xs hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <span className="text-slate-400">{balance} tCTC</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+              <span className="text-cyan-400 font-bold">
+                {account.slice(0, 6)}...{account.slice(-4)}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+            </button>
+
+            {isAccountMenuOpen && (
+              <div className="absolute right-0 mt-2 w-56 rounded-lg bg-slate-900 border border-slate-800 shadow-xl shadow-black/40 overflow-hidden z-50 font-sans normal-case">
+                <button
+                  disabled
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-slate-500 cursor-not-allowed"
+                  title="Coming soon"
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  Dashboard
+                </button>
+                <button
+                  onClick={() => {
+                    setIsAccountMenuOpen(false);
+                    onConnectAnotherAccount();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <UserPlus className="w-3.5 h-3.5 text-cyan-400" />
+                  Connect another account
+                </button>
+                <button
+                  onClick={() => {
+                    setIsAccountMenuOpen(false);
+                    onLogout();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-red-400 hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Logout
+                </button>
+                <button
+                  disabled
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-slate-500 border-t border-slate-800 cursor-not-allowed"
+                  title="Coming soon"
+                >
+                  <LifeBuoy className="w-3.5 h-3.5" />
+                  Contact support
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <button

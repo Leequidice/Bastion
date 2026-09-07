@@ -42,6 +42,8 @@ export interface BuildingDefinition {
   maxDurability: number;
   description: string;
   icon: string;
+  /** Ticks between shots for structures that fire on the Titan each battle tick. Undefined = does not fire. */
+  cooldownTicks?: number;
 }
 
 export const BUILDINGS: Record<string, BuildingDefinition> = {
@@ -54,6 +56,7 @@ export const BUILDINGS: Record<string, BuildingDefinition> = {
     maxDurability: 3000,
     description: "The supreme command center of the settlement. Must never fall.",
     icon: "Shield",
+    cooldownTicks: 2,
   },
   RAMPART: {
     id: "RAMPART",
@@ -64,6 +67,7 @@ export const BUILDINGS: Record<string, BuildingDefinition> = {
     maxDurability: 1500,
     description: "Reinforced granite wall designed to absorb devastating blunt siege attacks.",
     icon: "Layers",
+    cooldownTicks: 3,
   },
   BALLISTA: {
     id: "BALLISTA",
@@ -74,6 +78,7 @@ export const BUILDINGS: Record<string, BuildingDefinition> = {
     maxDurability: 800,
     description: "Heavy ranged counter-battery firing forged armor-piercing iron bolts.",
     icon: "Crosshair",
+    cooldownTicks: 2,
   },
   SUNSTONE_PYLON: {
     id: "SUNSTONE_PYLON",
@@ -84,6 +89,7 @@ export const BUILDINGS: Record<string, BuildingDefinition> = {
     maxDurability: 600,
     description: "Arcane energy projector emitting focused plasma arcs against flying and armored Colossi.",
     icon: "Zap",
+    cooldownTicks: 1,
   },
   QUARRY: {
     id: "QUARRY",
@@ -151,3 +157,16 @@ export const COLOSSI_ARCHETYPES = [
     weakness: "Concentrated Fire",
   },
 ];
+
+// --- Titan Wave Scaling (tunable) ---
+// Levels are uncapped. Each level compounds HP by HP_GROWTH_RATE (70% per the
+// design brief), grows lane distance linearly, and creeps Titan speed up by a
+// tiny compounding fraction so the march never suddenly becomes trivial or
+// unfair as HP scales into very large numbers.
+export const BASE_BOSS_HP = 2000;
+export const HP_GROWTH_RATE = 0.7; // +70% HP per level, compounding
+export const BASE_LANE_DISTANCE = 600; // abstract distance units to reach the Wall
+export const LANE_GROWTH_PER_LEVEL = 40; // additional units per level
+export const BASE_TITAN_SPEED = 6; // distance units per tick
+export const SPEED_GROWTH_RATE = 0.015; // +1.5% speed per level, compounding
+export const TICK_MS = 400; // battle tick interval

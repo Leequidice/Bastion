@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import { BUILDINGS, COLOSSI_ARCHETYPES } from "../lib/constants";
+import { BattleState } from "../lib/battleEngine";
 
 export interface PlacedStructure {
   id: string;
@@ -12,21 +13,8 @@ export interface PlacedStructure {
   condition: "Intact" | "Damaged" | "Destroyed";
   tokenId?: number;
   attestationHash?: string;
-}
-
-export interface ActiveColossus {
-  id: number;
-  archetype: number;
-  name: string;
-  severity: number;
-  hp: number;
-  maxHp: number;
-  x: number; // In canvas pixels
-  y: number;
-  targetX: number;
-  targetY: number;
-  status: "Approaching" | "Engaged" | "Repelled" | "Breached";
-  siegePower: number;
+  /** Ticks left before this structure can fire again in the real-time battle loop. */
+  cooldownRemaining?: number;
 }
 
 interface Projectile {
@@ -64,8 +52,9 @@ interface CityCanvasProps {
   selectedBuildingId: string | null;
   onTileClick: (x: number, y: number) => void;
   onSelectStructure: (structure: PlacedStructure | null) => void;
-  activeColossus: ActiveColossus | null;
-  firingAnimationTrigger: number; // Increment to trigger firing animation
+  battleState: BattleState | null;
+  wallStatus: "standing" | "breached";
+  lastFiredStructureIds: string[];
 }
 
 const GRID_SIZE = 12;
@@ -74,13 +63,34 @@ const PADDING = 40;
 const CANVAS_WIDTH = GRID_SIZE * TILE_SIZE + PADDING * 2;
 const CANVAS_HEIGHT = GRID_SIZE * TILE_SIZE + PADDING * 2;
 
+// The Titan marches down a fixed vertical lane from just above the grid to the
+// Wall just below it; its distance-based `progress` (0..1) interpolates here.
+const LANE_X = PADDING + (GRID_SIZE * TILE_SIZE) / 2;
+const LANE_SPAWN_Y = 18;
+const LANE_WALL_Y = PADDING + GRID_SIZE * TILE_SIZE + 18;
+
+const PROJECTILE_COLORS: Record<string, string> = {
+  RAMPART: "#94a3b8",
+  BALLISTA: "#facc15",
+  SUNSTONE_PYLON: "#06b6d4",
+  CITADEL: "#a855f7",
+};
+
+const PROJECTILE_TYPES: Record<string, "ballista" | "beam"> = {
+  RAMPART: "ballista",
+  BALLISTA: "ballista",
+  SUNSTONE_PYLON: "beam",
+  CITADEL: "beam",
+};
+
 export const CityCanvas: React.FC<CityCanvasProps> = ({
   structures,
   selectedBuildingId,
   onTileClick,
   onSelectStructure,
-  activeColossus,
-  firingAnimationTrigger,
+  battleState,
+  wallStatus,
+  lastFiredStructureIds,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [hoveredTile, setHoveredTile] = useState<{ x: number; y: number } | null>(null);
@@ -88,63 +98,39 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
   const particlesRef = useRef<Particle[]>([]);
   const damageNumbersRef = useRef<DamageNumber[]>([]);
 
-  // Trigger projectiles when firing animation requested
+  // Trigger projectiles from every structure that fired this battle tick
   useEffect(() => {
-    if (firingAnimationTrigger === 0 || !activeColossus || activeColossus.status !== "Approaching") return;
+    if (lastFiredStructureIds.length === 0 || !battleState) return;
+
+    const progress = 1 - battleState.distanceRemaining / battleState.totalDistance;
+    const targetX = LANE_X;
+    const targetY = LANE_SPAWN_Y + (LANE_WALL_Y - LANE_SPAWN_Y) * progress;
 
     const newProjectiles: Projectile[] = [];
-    const targetX = activeColossus.x;
-    const targetY = activeColossus.y;
+    lastFiredStructureIds.forEach((id) => {
+      const s = structures.find((st) => st.id === id);
+      const def = s ? BUILDINGS[s.type] : null;
+      if (!s || !def) return;
 
-    structures.forEach((s) => {
-      if (s.condition === "Destroyed") return;
       const startX = PADDING + s.gridX * TILE_SIZE + TILE_SIZE / 2;
       const startY = PADDING + s.gridY * TILE_SIZE + TILE_SIZE / 2;
 
-      if (s.type === "BALLISTA") {
-        newProjectiles.push({
-          startX,
-          startY,
-          currentX: startX,
-          currentY: startY,
-          targetX,
-          targetY,
-          color: "#facc15", // Gold
-          damage: 450,
-          progress: 0,
-          type: "ballista",
-        });
-      } else if (s.type === "SUNSTONE_PYLON") {
-        newProjectiles.push({
-          startX,
-          startY,
-          currentX: startX,
-          currentY: startY,
-          targetX,
-          targetY,
-          color: "#06b6d4", // Cyan
-          damage: 650,
-          progress: 0,
-          type: "beam",
-        });
-      } else if (s.type === "CITADEL") {
-        newProjectiles.push({
-          startX,
-          startY,
-          currentX: startX,
-          currentY: startY,
-          targetX,
-          targetY,
-          color: "#a855f7", // Purple
-          damage: 300,
-          progress: 0,
-          type: "beam",
-        });
-      }
+      newProjectiles.push({
+        startX,
+        startY,
+        currentX: startX,
+        currentY: startY,
+        targetX,
+        targetY,
+        color: PROJECTILE_COLORS[s.type] || "#facc15",
+        damage: def.defensePower * s.level,
+        progress: 0,
+        type: PROJECTILE_TYPES[s.type] || "ballista",
+      });
     });
 
     projectilesRef.current.push(...newProjectiles);
-  }, [firingAnimationTrigger]);
+  }, [lastFiredStructureIds, battleState, structures]);
 
   // Main Canvas Render Loop
   useEffect(() => {
@@ -306,11 +292,27 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
         ctx.strokeRect(hx + 1, hy + 1, TILE_SIZE - 2, TILE_SIZE - 2);
       }
 
-      // 5. Draw Approaching Colossus
-      if (activeColossus && (activeColossus.status === "Approaching" || activeColossus.status === "Engaged")) {
-        const cx = activeColossus.x;
-        const cy = activeColossus.y;
-        const archetypeInfo = COLOSSI_ARCHETYPES[activeColossus.archetype] || COLOSSI_ARCHETYPES[0];
+      // 5a. Draw the Wall — humanity's last line, spanning the base of the lane
+      const wallY = LANE_WALL_Y;
+      const breached = wallStatus === "breached";
+      ctx.fillStyle = breached ? "#450a0a" : "#334155";
+      ctx.fillRect(PADDING - 10, wallY - 8, GRID_SIZE * TILE_SIZE + 20, 16);
+      // Crenelations along the wall
+      ctx.fillStyle = breached ? "#7f1d1d" : "#64748b";
+      for (let i = 0; i < GRID_SIZE + 1; i++) {
+        ctx.fillRect(PADDING - 8 + i * TILE_SIZE, wallY - 12, 10, 8);
+      }
+      ctx.fillStyle = breached ? "#ef4444" : "#e2e8f0";
+      ctx.font = "bold 10px system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText(breached ? "THE WALL HAS FALLEN" : "THE WALL", LANE_X, wallY + 22);
+
+      // 5b. Draw the Marching Titan
+      if (battleState) {
+        const progress = 1 - battleState.distanceRemaining / battleState.totalDistance;
+        const cx = LANE_X;
+        const cy = LANE_SPAWN_Y + (LANE_WALL_Y - LANE_SPAWN_Y) * progress;
+        const archetypeInfo = COLOSSI_ARCHETYPES[battleState.titan.archetype] || COLOSSI_ARCHETYPES[0];
 
         // Threat Aura
         ctx.fillStyle = "rgba(239, 68, 68, 0.2)";
@@ -318,7 +320,7 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
         ctx.arc(cx, cy, 36, 0, Math.PI * 2);
         ctx.fill();
 
-        // Colossus Body Silhouette
+        // Titan Body Silhouette
         ctx.fillStyle = archetypeInfo.color;
         ctx.beginPath();
         ctx.arc(cx, cy, 22, 0, Math.PI * 2);
@@ -331,16 +333,16 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
         ctx.arc(cx + 6, cy - 4, 3, 0, Math.PI * 2);
         ctx.fill();
 
-        // Name & Star Badge
+        // Name & Level Badge
         ctx.fillStyle = "#ffffff";
         ctx.font = "bold 11px system-ui";
         ctx.textAlign = "center";
-        ctx.fillText(`${activeColossus.name} (${"★".repeat(activeColossus.severity)})`, cx, cy - 30);
+        ctx.fillText(`${battleState.titan.name} (Lv.${battleState.titan.level})`, cx, cy - 30);
 
-        // Colossus Health Bar
+        // Titan Health Bar
         const barWidth = 60;
         const barHeight = 6;
-        const hpPercent = Math.max(0, activeColossus.hp / activeColossus.maxHp);
+        const hpPercent = Math.max(0, battleState.titan.hp / battleState.titan.maxHp);
         ctx.fillStyle = "#1e293b";
         ctx.fillRect(cx - barWidth / 2, cy - 24, barWidth, barHeight);
         ctx.fillStyle = hpPercent > 0.5 ? "#22c55e" : hpPercent > 0.2 ? "#eab308" : "#ef4444";
@@ -436,7 +438,7 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [structures, hoveredTile, selectedBuildingId, activeColossus]);
+  }, [structures, hoveredTile, selectedBuildingId, battleState, wallStatus]);
 
   // Handle Canvas Mouse Move
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {

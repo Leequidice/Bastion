@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "bastion-client",
+      "runtimeExecutable": "client/node_modules/.bin/vite",
+      "runtimeArgs": ["--config", "client/vite.config.js", "--root", "client"],
+      "port": 5173
+    }
+  ]
+}

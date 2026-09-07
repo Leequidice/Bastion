@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
-import { BUILDINGS, COLOSSI_ARCHETYPES, CREDITCOIN_TESTNET } from "../lib/constants";
-import { PlacedStructure, ActiveColossus } from "../components/CityCanvas";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { BUILDINGS, CREDITCOIN_TESTNET, TICK_MS } from "../lib/constants";
+import { PlacedStructure } from "../components/CityCanvas";
 import { Resources, MarketConditionState } from "../components/ResourceBar";
 import { generateAttestationPayload, AttestationPayload } from "../lib/attestationHelper";
+import { createBattleStateForLevel, tickBattle, BattleState, QuirkEvents } from "../lib/battleEngine";
 import confetti from "canvas-confetti";
 import { ethers } from "ethers";
 
@@ -125,16 +126,28 @@ export function useBastionGame() {
   // Selected Structure for Detailed Inspector (Phase 3)
   const [inspectedStructure, setInspectedStructure] = useState<PlacedStructure | null>(null);
 
-  // Active Incursion Threat (Phase 1)
-  const [activeColossus, setActiveColossus] = useState<ActiveColossus | null>(null);
-  const [totalRepelled, setTotalRepelled] = useState(2);
+  // Titan Wave / Wall State
+  const [level, setLevel] = useState(1);
+  const [highestLevelReached, setHighestLevelReached] = useState(1);
+  const [wallStatus, setWallStatus] = useState<"standing" | "breached">("standing");
+  const [battleState, setBattleState] = useState<BattleState | null>(null);
+  const [totalRepelled, setTotalRepelled] = useState(0);
   const [totalBreached, setTotalBreached] = useState(0);
-
-  // Animation Triggers
-  const [firingAnimationTrigger, setFiringAnimationTrigger] = useState(0);
-  const [isTriggering, setIsTriggering] = useState(false);
-  const [isDefending, setIsDefending] = useState(false);
+  const [lastFiredStructureIds, setLastFiredStructureIds] = useState<string[]>([]);
+  const [lastQuirkEvents, setLastQuirkEvents] = useState<QuirkEvents | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
   const [isHarvesting, setIsHarvesting] = useState(false);
+
+  // Refs so the tick interval and effects always read the latest value
+  // without needing to be re-created (and re-triggering) every tick.
+  const battleStateRef = useRef(battleState);
+  const structuresRef = useRef(structures);
+  const levelRef = useRef(level);
+  useEffect(() => {
+    battleStateRef.current = battleState;
+    structuresRef.current = structures;
+    levelRef.current = level;
+  });
 
   // Latest Cryptographic Proof for Inspector Modal
   const [latestPayload, setLatestPayload] = useState<AttestationPayload | null>(null);
@@ -282,101 +295,82 @@ export function useBastionGame() {
     [resources, inspectedStructure]
   );
 
-  // Trigger Attested Incursion (Phase 1 Core ASC Call)
-  const handleTriggerIncursion = useCallback(() => {
-    setIsTriggering(true);
+  // Start the next Titan wave (level 1 on first call, or the current level after a restart)
+  const handleStartWave = useCallback(() => {
+    if (battleStateRef.current) return; // a wave is already running
+    setIsStarting(true);
 
     setTimeout(() => {
-      // 1. Generate cryptographic Attestcoin proof
-      const payload = generateAttestationPayload();
-      setLatestPayload(payload);
-
-      const sim = payload.simulatedColossus!;
-      const archetypeInfo = COLOSSI_ARCHETYPES[sim.archetype];
-
-      // 2. Spawn Colossus outside the perimeter on canvas
-      const newColossus: ActiveColossus = {
-        id: Date.now(),
-        archetype: sim.archetype,
-        name: archetypeInfo.name,
-        severity: sim.severity,
-        hp: sim.hp,
-        maxHp: sim.hp,
-        x: 320, // Center top of canvas
-        y: 65,  // Just outside the north wall
-        targetX: 320,
-        targetY: 280, // Targeting Citadel Core
-        status: "Approaching",
-        siegePower: sim.siege,
-      };
-
-      setActiveColossus(newColossus);
-      setIsTriggering(false);
-    }, 800);
+      // Poll an Attestcoin proof for flavor/inspection; the wave's difficulty
+      // itself is driven by the deterministic level-scaling formulas below.
+      setLatestPayload(generateAttestationPayload());
+      setBattleState(createBattleStateForLevel(levelRef.current));
+      setIsStarting(false);
+    }, 500);
   }, []);
 
-  // Mobilize Defenses (Combat Resolution)
-  const handleMobilizeDefenses = useCallback(() => {
-    if (!activeColossus) return;
-    setIsDefending(true);
-    setFiringAnimationTrigger((prev) => prev + 1);
+  // Restart the whole campaign after a Wall breach
+  const handleRestart = useCallback(() => {
+    setLevel(1);
+    setWallStatus("standing");
+    setBattleState(createBattleStateForLevel(1));
+  }, []);
 
-    setTimeout(() => {
-      const damageDealt = totalDefensePower;
-      const remainingHp = Math.max(0, activeColossus.hp - damageDealt);
+  // Real-time Battle Tick Loop: advances the Titan and fires ready defenses every TICK_MS
+  const isBattleActive = battleState?.matchStatus === "active";
+  useEffect(() => {
+    if (!isBattleActive) return;
 
-      if (remainingHp === 0) {
-        // VICTORY: Colossus repelled
-        setActiveColossus((prev) => (prev ? { ...prev, hp: 0, status: "Repelled" } : null));
-        setTotalRepelled((prev) => prev + 1);
+    const interval = setInterval(() => {
+      const current = battleStateRef.current;
+      if (!current || current.matchStatus !== "active") return;
 
-        // Award battle bounty
-        const stoneBounty = activeColossus.severity * 75;
-        const energyBounty = activeColossus.severity * 40;
-        setResources((prev) => ({
-          ...prev,
-          stone: prev.stone + stoneBounty,
-          energy: prev.energy + energyBounty,
-        }));
+      const { state: nextState, structures: nextStructures, firedStructureIds, quirkEvents } = tickBattle(
+        current,
+        structuresRef.current
+      );
+      setBattleState(nextState);
+      setStructures(nextStructures);
+      setLastFiredStructureIds(firedStructureIds);
+      setLastQuirkEvents(quirkEvents);
+    }, TICK_MS);
 
-        // Confetti celebration
-        try {
-          confetti({
-            particleCount: 80,
-            spread: 70,
-            origin: { y: 0.6 },
-          });
-        } catch (_) {}
+    return () => clearInterval(interval);
+  }, [isBattleActive]);
 
-        // Clear Colossus after delay
-        setTimeout(() => {
-          setActiveColossus(null);
-          setIsDefending(false);
-        }, 2500);
-      } else {
-        // Colossus survived and batters defenses
-        setActiveColossus((prev) =>
-          prev ? { ...prev, hp: remainingHp, status: "Engaged" } : null
-        );
+  // React to a wave's outcome: victory advances the level, a breach ends the campaign
+  const matchStatus = battleState?.matchStatus;
+  useEffect(() => {
+    if (matchStatus === "won") {
+      setTotalRepelled((prev) => prev + 1);
+      setHighestLevelReached((prev) => Math.max(prev, levelRef.current + 1));
 
-        // Inflict damage on outer structures
-        setStructures((prev) =>
-          prev.map((s) => {
-            if (s.type === "RAMPART" && s.durability > 0) {
-              const newDur = Math.max(0, s.durability - 400);
-              return {
-                ...s,
-                durability: newDur,
-                condition: newDur === 0 ? "Destroyed" : newDur < s.maxDurability / 2 ? "Damaged" : "Intact",
-              };
-            }
-            return s;
-          })
-        );
-        setIsDefending(false);
-      }
-    }, 1200);
-  }, [activeColossus, totalDefensePower]);
+      const stoneBounty = levelRef.current * 75;
+      const energyBounty = levelRef.current * 40;
+      setResources((prev) => ({
+        ...prev,
+        stone: prev.stone + stoneBounty,
+        energy: prev.energy + energyBounty,
+      }));
+
+      try {
+        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+      } catch (_) {}
+
+      const timeout = setTimeout(() => {
+        const nextLevel = levelRef.current + 1;
+        setLevel(nextLevel);
+        setBattleState(createBattleStateForLevel(nextLevel));
+      }, 2200);
+
+      return () => clearTimeout(timeout);
+    }
+
+    if (matchStatus === "lost") {
+      setTotalBreached((prev) => prev + 1);
+      setWallStatus("breached");
+    }
+  }, [matchStatus]);
 
   // Connect Web3 Wallet
   const handleConnectWallet = useCallback(async () => {
@@ -441,13 +435,16 @@ export function useBastionGame() {
     setSelectedBuildingId,
     inspectedStructure,
     setInspectedStructure,
-    activeColossus,
+    level,
+    highestLevelReached,
+    wallStatus,
+    battleState,
+    lastFiredStructureIds,
+    lastQuirkEvents,
     totalRepelled,
     totalBreached,
     totalDefensePower,
-    firingAnimationTrigger,
-    isTriggering,
-    isDefending,
+    isStarting,
     isHarvesting,
     latestPayload,
     isProofModalOpen,
@@ -461,8 +458,8 @@ export function useBastionGame() {
     handlePlaceBuilding,
     handleRepairStructure,
     handleUpgradeStructure,
-    handleTriggerIncursion,
-    handleMobilizeDefenses,
+    handleStartWave,
+    handleRestart,
     handleConnectWallet,
     handleSwitchNetwork,
   };

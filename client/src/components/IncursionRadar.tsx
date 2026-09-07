@@ -1,30 +1,36 @@
 import React from "react";
-import { Radio, AlertTriangle, Swords, ShieldAlert, CheckCircle, Skull, Flame } from "lucide-react";
-import { ActiveColossus } from "./CityCanvas";
+import { Radio, AlertTriangle, ShieldAlert, CheckCircle, Skull, Swords } from "lucide-react";
+import { BattleState } from "../lib/battleEngine";
 import { COLOSSI_ARCHETYPES } from "../lib/constants";
 
 interface IncursionRadarProps {
-  activeColossus: ActiveColossus | null;
+  level: number;
+  highestLevelReached: number;
+  battleState: BattleState | null;
+  wallStatus: "standing" | "breached";
   totalRepelled: number;
   totalBreached: number;
-  onTriggerIncursion: () => void;
-  onMobilizeDefenses: () => void;
-  isTriggering: boolean;
-  isDefending: boolean;
+  isStarting: boolean;
+  onStartWave: () => void;
+  onRestart: () => void;
 }
 
 export const IncursionRadar: React.FC<IncursionRadarProps> = ({
-  activeColossus,
+  level,
+  highestLevelReached,
+  battleState,
+  wallStatus,
   totalRepelled,
   totalBreached,
-  onTriggerIncursion,
-  onMobilizeDefenses,
-  isTriggering,
-  isDefending,
+  isStarting,
+  onStartWave,
+  onRestart,
 }) => {
-  const archetypeInfo = activeColossus
-    ? COLOSSI_ARCHETYPES[activeColossus.archetype] || COLOSSI_ARCHETYPES[0]
-    : null;
+  const titan = battleState?.titan ?? null;
+  const archetypeInfo = titan ? COLOSSI_ARCHETYPES[titan.archetype] || COLOSSI_ARCHETYPES[0] : null;
+  const distanceProgress = battleState
+    ? Math.min(1, 1 - battleState.distanceRemaining / battleState.totalDistance)
+    : 0;
 
   return (
     <div className="w-full bg-slate-950/80 border border-slate-800 rounded-xl p-4 shadow-xl backdrop-blur-md flex flex-col gap-4">
@@ -37,11 +43,9 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
           </div>
           <div>
             <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider">
-              Attested Threat Radar
+              Wall Watch // Level {level}
             </h2>
-            <p className="text-[11px] text-slate-400">
-              Source: Ethereum Sepolia (chainKey: 1)
-            </p>
+            <p className="text-[11px] text-slate-400">Highest wave held: {highestLevelReached}</p>
           </div>
         </div>
 
@@ -57,111 +61,130 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
         </div>
       </div>
 
-      {/* Radar Visual Display */}
-      <div className="relative w-full h-44 bg-slate-900/90 rounded-lg border border-slate-800 flex items-center justify-center overflow-hidden">
-        {/* Concentric Radar Rings */}
-        <div className="absolute w-36 h-36 rounded-full border border-cyan-900/40"></div>
-        <div className="absolute w-24 h-24 rounded-full border border-cyan-900/60"></div>
-        <div className="absolute w-12 h-12 rounded-full border border-cyan-800/80"></div>
-        <div className="absolute w-full h-[1px] bg-cyan-900/30"></div>
-        <div className="absolute h-full w-[1px] bg-cyan-900/30"></div>
-
-        {/* Sweeping Radar Beam */}
-        <div className="absolute w-40 h-40 rounded-full radar-sweep pointer-events-none">
-          <div className="w-1/2 h-1/2 bg-gradient-to-br from-cyan-500/20 to-transparent rounded-tl-full"></div>
-        </div>
-
-        {/* Center Settlement Blip */}
-        <div className="absolute w-3 h-3 rounded-full bg-indigo-500 shadow-md shadow-indigo-500/50 z-10 flex items-center justify-center">
-          <span className="w-1 h-1 rounded-full bg-white"></span>
-        </div>
-
-        {/* Colossus Radar Blip */}
-        {activeColossus && (activeColossus.status === "Approaching" || activeColossus.status === "Engaged") ? (
-          <div className="absolute top-6 right-16 z-20 flex items-center gap-1.5 pulse-red">
-            <div className="w-4 h-4 rounded-full bg-red-600 border-2 border-white shadow-lg shadow-red-500/80 flex items-center justify-center">
-              <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
-            </div>
-            <span className="text-[10px] font-bold text-red-400 bg-red-950/80 px-1 rounded border border-red-800">
-              TARGET LOCK
-            </span>
-          </div>
-        ) : (
-          <div className="absolute text-xs text-slate-500 flex items-center gap-1.5 font-mono">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            No Incursions Active — Perimeter Secure
-          </div>
-        )}
-      </div>
-
-      {/* Active Colossus Threat Dossier */}
-      {activeColossus && archetypeInfo ? (
-        <div className="p-3 bg-red-950/20 border border-red-900/50 rounded-lg flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-red-400 animate-bounce" />
-              <span className="text-sm font-bold text-red-200">
-                {archetypeInfo.name}
-              </span>
-              <span className="text-xs text-amber-400 font-mono font-bold">
-                {"★".repeat(activeColossus.severity)}
-              </span>
-            </div>
-            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-red-900/60 text-red-300">
-              {activeColossus.status}
-            </span>
-          </div>
-
-          <p className="text-xs text-slate-300 italic">
-            "{archetypeInfo.description}"
+      {wallStatus === "breached" ? (
+        /* Game Over: the Wall has fallen */
+        <div className="flex flex-col gap-3 p-4 bg-red-950/30 border border-red-900/60 rounded-lg items-center text-center">
+          <Skull className="w-8 h-8 text-red-500" />
+          <h3 className="text-lg font-bold text-red-300">The Wall Has Fallen</h3>
+          <p className="text-xs text-slate-400">
+            The Titan reached the Wall at Level {level}. Humanity's line held for {highestLevelReached - 1} wave
+            {highestLevelReached - 1 === 1 ? "" : "s"}.
           </p>
-
-          <div className="grid grid-cols-3 gap-2 text-xs font-mono pt-1">
-            <div className="bg-slate-900/80 p-2 rounded border border-slate-800">
-              <span className="text-slate-400 text-[10px] block">Colossus HP</span>
-              <span className="text-red-400 font-bold">
-                {activeColossus.hp} / {activeColossus.maxHp}
-              </span>
-            </div>
-            <div className="bg-slate-900/80 p-2 rounded border border-slate-800">
-              <span className="text-slate-400 text-[10px] block">Siege Damage</span>
-              <span className="text-amber-400 font-bold">
-                {activeColossus.siegePower} DMG
-              </span>
-            </div>
-            <div className="bg-slate-900/80 p-2 rounded border border-slate-800">
-              <span className="text-slate-400 text-[10px] block">Tactical Counter</span>
-              <span className="text-cyan-400 font-bold truncate block">
-                {archetypeInfo.weakness}
-              </span>
-            </div>
-          </div>
-
-          {/* Mobilize Defenses Action */}
           <button
-            onClick={onMobilizeDefenses}
-            disabled={isDefending}
-            className="w-full mt-2 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-gradient-to-r from-red-600 via-orange-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold shadow-lg shadow-red-600/30 transition-all cursor-pointer disabled:opacity-50"
+            onClick={onRestart}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-gradient-to-r from-red-600 via-orange-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold shadow-lg shadow-red-600/30 transition-all cursor-pointer"
           >
             <Swords className="w-4 h-4" />
-            <span>{isDefending ? "Opening Fire..." : "Mobilize Defense Artillery"}</span>
+            <span>Rebuild the Wall &amp; Restart</span>
           </button>
         </div>
-      ) : (
-        /* Trigger Incursion Button */
+      ) : !battleState ? (
+        /* Idle: no wave running yet */
         <div className="flex flex-col gap-2">
           <p className="text-xs text-slate-400">
-            Click below to poll verified cross-chain telemetry from Ethereum Sepolia via Attestcoin Protocol (<span className="font-mono text-cyan-400">0x0FD2</span>) and trigger a deterministically derived Colossus siege.
+            Fortify your sectors, then sound the horn. The Titan marches down the lane toward the Wall —
+            every defense in range fires automatically as it approaches. Let it reach the Wall and the
+            Wall falls.
           </p>
           <button
-            onClick={onTriggerIncursion}
-            disabled={isTriggering}
+            onClick={onStartWave}
+            disabled={isStarting}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-bold shadow-lg shadow-cyan-600/25 transition-all cursor-pointer disabled:opacity-50"
           >
             <ShieldAlert className="w-4 h-4" />
-            <span>{isTriggering ? "Verifying Attestcoin Proof..." : "Poll Attested Incursion (Sepolia)"}</span>
+            <span>{isStarting ? "Verifying Attestcoin Proof..." : `Sound the Horn — Level ${level}`}</span>
           </button>
         </div>
+      ) : battleState.matchStatus === "won" ? (
+        /* Brief victory banner before the next wave auto-starts */
+        <div className="flex flex-col gap-2 p-3 bg-emerald-950/30 border border-emerald-900/60 rounded-lg items-center text-center">
+          <CheckCircle className="w-6 h-6 text-emerald-400" />
+          <h3 className="text-sm font-bold text-emerald-300">Wave {level} Repelled!</h3>
+          <p className="text-xs text-slate-400">The next Titan approaches...</p>
+        </div>
+      ) : (
+        /* Active battle HUD */
+        titan &&
+        archetypeInfo && (
+          <div className="p-3 bg-red-950/20 border border-red-900/50 rounded-lg flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-400 animate-bounce" />
+                <span className="text-sm font-bold text-red-200">{titan.name}</span>
+                <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                  {titan.class}
+                </span>
+              </div>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-red-900/60 text-red-300">
+                Marching
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-300 italic">"{archetypeInfo.description}"</p>
+
+            <div>
+              <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                <span>Titan HP</span>
+                <span>
+                  {Math.max(0, Math.round(titan.hp))} / {titan.maxHp}
+                </span>
+              </div>
+              <div className="w-full h-2 bg-slate-900/80 rounded border border-slate-800 overflow-hidden">
+                <div
+                  className="h-full bg-red-500 transition-all"
+                  style={{ width: `${Math.max(0, (titan.hp / titan.maxHp) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {titan.minions.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] text-cyan-400">
+                  Shielded by {titan.minions.length} minion{titan.minions.length === 1 ? "" : "s"} — she takes no damage until they fall
+                </span>
+                {titan.minions.map((m) => (
+                  <div key={m.id} className="w-full h-1.5 bg-slate-900/80 rounded border border-slate-800 overflow-hidden">
+                    <div
+                      className="h-full bg-cyan-400 transition-all"
+                      style={{ width: `${Math.max(0, (m.hp / m.maxHp) * 100)}%` }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div>
+              <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                <span>Distance to Wall</span>
+                <span>{Math.round((1 - distanceProgress) * 100)}% remaining</span>
+              </div>
+              <div className="w-full h-2 bg-slate-900/80 rounded border border-slate-800 overflow-hidden">
+                <div
+                  className="h-full bg-amber-500 transition-all"
+                  style={{ width: `${distanceProgress * 100}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1">
+              <div className="bg-slate-900/80 p-2 rounded border border-slate-800">
+                <span className="text-slate-400 text-[10px] block">Siege Power</span>
+                <span className="text-amber-400 font-bold">{titan.siegePower} DMG</span>
+              </div>
+              <div className="bg-slate-900/80 p-2 rounded border border-slate-800">
+                <span className="text-slate-400 text-[10px] block">Tactical Counter</span>
+                <span className="text-cyan-400 font-bold truncate block">{archetypeInfo.weakness}</span>
+              </div>
+            </div>
+
+            {titan.quirkTimerMs !== null && (
+              <div className="bg-slate-900/80 p-2 rounded border border-slate-800 text-xs font-mono flex items-center justify-between">
+                <span className="text-slate-400 text-[10px]">Next quirk trigger</span>
+                <span className="text-orange-400 font-bold">{(titan.quirkTimerMs / 1000).toFixed(1)}s</span>
+              </div>
+            )}
+          </div>
+        )
       )}
     </div>
   );

@@ -44,8 +44,10 @@ export function App() {
             selectedBuildingId={game.selectedBuildingId}
             onTileClick={game.handlePlaceBuilding}
             onSelectStructure={game.setInspectedStructure}
-            activeColossus={game.activeColossus}
-            firingAnimationTrigger={game.firingAnimationTrigger}
+            battleState={game.battleState}
+            wallStatus={game.wallStatus}
+            lastFiredStructureIds={game.lastFiredStructureIds}
+            lastQuirkEvents={game.lastQuirkEvents}
           />
 
           {/* Tactical Instructions & Mechanics Guide */}
@@ -56,16 +58,19 @@ export function App() {
             </div>
             <ol className="list-decimal list-inside space-y-1 text-slate-400">
               <li>
-                <strong>Fortify the Redoubt:</strong> Choose Ramparts, Ballistas, and Sunstone Batteries from the palette and place them on empty sectors.
+                <strong>Fortify the Redoubt:</strong> Choose Ramparts, Ballistas, and Sunstone Batteries from the palette and place them on empty sectors before the Titan arrives.
               </li>
               <li>
-                <strong>Attested Incursion Trigger (Phase 1):</strong> Click <em className="text-slate-200">"Poll Attested Incursion"</em> to pull verified state from Ethereum Sepolia. Colossus archetype and siege power are deterministically derived via precompile <span className="font-mono text-cyan-400">0x0FD2</span>.
+                <strong>Sound the Horn:</strong> Starting a wave polls an Attestcoin proof from Ethereum Sepolia for flavor while a Titan spawns and begins marching down the lane toward the Wall in real time.
               </li>
               <li>
-                <strong>Mobilize Artillery:</strong> Click <em className="text-slate-200">"Mobilize Defense Artillery"</em> to concentrate all active defenses against the approaching beast.
+                <strong>Automatic Defense:</strong> Every placed defense fires on its own cooldown as the Titan approaches — no manual firing needed. Kill it before it reaches the Wall.
               </li>
               <li>
-                <strong>Attested Resource Economy (Phase 2):</strong> Resource costs dynamically fluctuate based on cross-chain seismic data. Harvest stone and energy to rebuild damaged walls.
+                <strong>Escalating Levels:</strong> Each Titan you repel raises the level — HP grows 70% per wave, the march grows longer, and the Titan creeps slightly faster. There is no level cap; if the Titan ever reaches the Wall, the Wall falls and the run ends.
+              </li>
+              <li>
+                <strong>Attested Resource Economy (Phase 2):</strong> Resource costs dynamically fluctuate based on cross-chain seismic data. Harvest and spend bounty from repelled waves to build and upgrade more defenses.
               </li>
               <li>
                 <strong>Portable Structure NFTs (Phase 3):</strong> Click on any wall or tower to inspect its ERC-721 token ID and on-chain Attestation Hash.
@@ -78,13 +83,15 @@ export function App() {
         <div className="lg:col-span-5 flex flex-col gap-4">
           {/* Phase 1: Incursion Radar & Siege Terminal */}
           <IncursionRadar
-            activeColossus={game.activeColossus}
+            level={game.level}
+            highestLevelReached={game.highestLevelReached}
+            battleState={game.battleState}
+            wallStatus={game.wallStatus}
             totalRepelled={game.totalRepelled}
             totalBreached={game.totalBreached}
-            onTriggerIncursion={game.handleTriggerIncursion}
-            onMobilizeDefenses={game.handleMobilizeDefenses}
-            isTriggering={game.isTriggering}
-            isDefending={game.isDefending}
+            isStarting={game.isStarting}
+            onStartWave={game.handleStartWave}
+            onRestart={game.handleRestart}
           />
 
           {/* Structure Inspector (Phase 3 NFT state) */}

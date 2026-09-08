@@ -20,3 +20,17 @@ export async function saveState(token: string, state: unknown): Promise<void> {
   });
   if (!res.ok) throw new Error(`saveState failed: ${res.status}`);
 }
+
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  displayName: string | null;
+  level: number;
+}
+
+export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
+  const res = await fetch(`${API_URL}/api/leaderboard`);
+  if (!res.ok) throw new Error(`getLeaderboard failed: ${res.status}`);
+  const { entries } = await res.json();
+  return entries;
+}

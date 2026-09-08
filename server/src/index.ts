@@ -2,6 +2,7 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import stateRoutes from "./routes/state.js";
+import leaderboardRoutes from "./routes/leaderboard.js";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 8787;
@@ -12,6 +13,7 @@ app.use(express.json());
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/state", stateRoutes);
+app.use("/api/leaderboard", leaderboardRoutes);
 
 app.listen(PORT, () => {
   console.log(`Bastion server listening on http://localhost:${PORT}`);

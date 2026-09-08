@@ -1,5 +1,5 @@
 import React from "react";
-import { Hammer, Zap, Wheat, Shield, Sparkles, TrendingUp, RefreshCw } from "lucide-react";
+import { Hammer, Zap, Wheat, Shield, Sparkles, TrendingUp, RefreshCw, HeartPulse, ArrowUpCircle } from "lucide-react";
 
 export interface Resources {
   stone: number;
@@ -21,6 +21,10 @@ interface ResourceBarProps {
   totalDefensePower: number;
   onHarvest: () => void;
   isHarvesting: boolean;
+  onHealAll: () => void;
+  canHealAll: boolean;
+  onUpgradeAll: () => void;
+  canUpgradeAll: boolean;
 }
 
 export const ResourceBar: React.FC<ResourceBarProps> = ({
@@ -29,6 +33,10 @@ export const ResourceBar: React.FC<ResourceBarProps> = ({
   totalDefensePower,
   onHarvest,
   isHarvesting,
+  onHealAll,
+  canHealAll,
+  onUpgradeAll,
+  canUpgradeAll,
 }) => {
   const stoneMultFormatted = (marketCondition.stoneMultiplier / 10000).toFixed(2);
   const energyMultFormatted = (marketCondition.energyMultiplier / 10000).toFixed(2);
@@ -144,6 +152,26 @@ export const ResourceBar: React.FC<ResourceBarProps> = ({
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isHarvesting ? "animate-spin" : ""}`} />
           <span>Harvest Vault</span>
+        </button>
+
+        <button
+          onClick={onHealAll}
+          disabled={!canHealAll}
+          title="Repair every damaged structure (20 Stone each)"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 font-semibold shadow-md transition-all cursor-pointer"
+        >
+          <HeartPulse className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Heal All</span>
+        </button>
+
+        <button
+          onClick={onUpgradeAll}
+          disabled={!canUpgradeAll}
+          title="Upgrade every eligible structure by one level (40 Stone + 20 Energy each)"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white font-semibold shadow-md shadow-cyan-600/20 transition-all cursor-pointer"
+        >
+          <ArrowUpCircle className="w-3.5 h-3.5" />
+          <span>Upgrade All</span>
         </button>
       </div>
     </div>

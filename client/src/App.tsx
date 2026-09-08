@@ -7,10 +7,23 @@ import { IncursionRadar } from "./components/IncursionRadar";
 import { BuildMenu } from "./components/BuildMenu";
 import { StructureInspector } from "./components/StructureInspector";
 import { AttestationModal } from "./components/AttestationModal";
+import { Leaderboard } from "./components/Leaderboard";
+import { MAX_STRUCTURE_LEVEL } from "./lib/constants";
 import { Shield, Sparkles, ExternalLink, HelpCircle } from "lucide-react";
 
 export function App() {
   const game = useBastionGame();
+
+  const damagedCount = game.structures.filter((s) => s.durability < s.maxDurability).length;
+  const canHealAll = damagedCount > 0 && game.resources.stone >= damagedCount * 20;
+
+  const upgradeEligibleCount = game.structures.filter(
+    (s) => s.condition === "Intact" && s.level < MAX_STRUCTURE_LEVEL
+  ).length;
+  const canUpgradeAll =
+    upgradeEligibleCount > 0 &&
+    game.resources.stone >= upgradeEligibleCount * 40 &&
+    game.resources.energy >= upgradeEligibleCount * 20;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-white">
@@ -22,6 +35,7 @@ export function App() {
         onConnectWallet={game.handleConnectWallet}
         onSwitchNetwork={game.handleSwitchNetwork}
         onOpenProofModal={() => game.setIsProofModalOpen(true)}
+        onOpenLeaderboard={() => game.setIsLeaderboardOpen(true)}
         isSandboxMode={game.isSandboxMode}
         onToggleSandbox={() => game.setIsSandboxMode(!game.isSandboxMode)}
         onLogout={game.handleLogout}
@@ -35,6 +49,10 @@ export function App() {
         totalDefensePower={game.totalDefensePower}
         onHarvest={game.handleHarvest}
         isHarvesting={game.isHarvesting}
+        onHealAll={game.handleHealAll}
+        canHealAll={canHealAll}
+        onUpgradeAll={game.handleUpgradeAll}
+        canUpgradeAll={canUpgradeAll}
       />
 
       {/* Main Tactical Grid & Defense Command Workspace */}
@@ -94,6 +112,9 @@ export function App() {
             isStarting={game.isStarting}
             onStartWave={game.handleStartWave}
             onRestart={game.handleRestart}
+            onContinue={game.handleContinueFromBreach}
+            isContinuing={game.isContinuing}
+            continueError={game.continueError}
           />
 
           {/* Structure Inspector (Phase 3 NFT state) */}
@@ -103,6 +124,7 @@ export function App() {
               onClose={() => game.setInspectedStructure(null)}
               onRepair={game.handleRepairStructure}
               onUpgrade={game.handleUpgradeStructure}
+              onRemove={game.handleRemoveStructure}
               resources={game.resources}
             />
           )}
@@ -121,6 +143,12 @@ export function App() {
         isOpen={game.isProofModalOpen}
         onClose={() => game.setIsProofModalOpen(false)}
         latestPayload={game.latestPayload}
+      />
+
+      {/* Wall Watch Leaderboard */}
+      <Leaderboard
+        isOpen={game.isLeaderboardOpen}
+        onClose={() => game.setIsLeaderboardOpen(false)}
       />
 
       {/* Footer */}

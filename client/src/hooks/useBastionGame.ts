@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { usePrivy, useWallets, useLinkAccount } from "@privy-io/react-auth";
-import { BUILDINGS, CREDITCOIN_TESTNET, TICK_MS } from "../lib/constants";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
+import {
+  BUILDINGS,
+  CREDITCOIN_TESTNET,
+  TICK_MS,
+  MAX_STRUCTURE_LEVEL,
+  TREASURY_ADDRESS,
+  CONTINUE_AFTER_BREACH_FEE_CTC,
+} from "../lib/constants";
 import { PlacedStructure } from "../components/CityCanvas";
 import { Resources, MarketConditionState } from "../components/ResourceBar";
 import { generateAttestationPayload, AttestationPayload } from "../lib/attestationHelper";
@@ -17,112 +24,118 @@ interface SavedGameState {
   wallStatus: "standing" | "breached";
   totalRepelled: number;
   totalBreached: number;
+  account: string | null;
 }
+
+// Hoisted so a logout/reset can restore exactly this starting layout.
+const INITIAL_STRUCTURES: PlacedStructure[] = [
+  {
+    id: "citadel-core",
+    type: "CITADEL",
+    gridX: 5,
+    gridY: 5,
+    durability: 3000,
+    maxDurability: 3000,
+    level: 1,
+    condition: "Intact",
+    tokenId: 0,
+    attestationHash: "0x89fa12...citadel",
+  },
+  {
+    id: "rampart-north-1",
+    type: "RAMPART",
+    gridX: 4,
+    gridY: 3,
+    durability: 1500,
+    maxDurability: 1500,
+    level: 1,
+    condition: "Intact",
+    tokenId: 1,
+    attestationHash: "0x33b112...rampart",
+  },
+  {
+    id: "rampart-north-2",
+    type: "RAMPART",
+    gridX: 5,
+    gridY: 3,
+    durability: 1500,
+    maxDurability: 1500,
+    level: 1,
+    condition: "Intact",
+    tokenId: 2,
+    attestationHash: "0x44c213...rampart",
+  },
+  {
+    id: "rampart-north-3",
+    type: "RAMPART",
+    gridX: 6,
+    gridY: 3,
+    durability: 1500,
+    maxDurability: 1500,
+    level: 1,
+    condition: "Intact",
+    tokenId: 3,
+    attestationHash: "0x55d314...rampart",
+  },
+  {
+    id: "ballista-north",
+    type: "BALLISTA",
+    gridX: 5,
+    gridY: 4,
+    durability: 800,
+    maxDurability: 800,
+    level: 1,
+    condition: "Intact",
+    tokenId: 4,
+    attestationHash: "0x66e415...ballista",
+  },
+  {
+    id: "pylon-east",
+    type: "SUNSTONE_PYLON",
+    gridX: 7,
+    gridY: 5,
+    durability: 600,
+    maxDurability: 600,
+    level: 1,
+    condition: "Intact",
+    tokenId: 5,
+    attestationHash: "0x77f516...pylon",
+  },
+  {
+    id: "quarry-1",
+    type: "QUARRY",
+    gridX: 3,
+    gridY: 6,
+    durability: 500,
+    maxDurability: 500,
+    level: 1,
+    condition: "Intact",
+  },
+  {
+    id: "farm-1",
+    type: "FARM",
+    gridX: 4,
+    gridY: 6,
+    durability: 400,
+    maxDurability: 400,
+    level: 1,
+    condition: "Intact",
+  },
+];
+
+const INITIAL_RESOURCES: Resources = {
+  stone: 240,
+  energy: 180,
+  food: 200,
+  aegisAlloy: 45,
+};
 
 export function useBastionGame() {
   // Settlement Structures Grid
-  const [structures, setStructures] = useState<PlacedStructure[]>([
-    {
-      id: "citadel-core",
-      type: "CITADEL",
-      gridX: 5,
-      gridY: 5,
-      durability: 3000,
-      maxDurability: 3000,
-      level: 1,
-      condition: "Intact",
-      tokenId: 0,
-      attestationHash: "0x89fa12...citadel",
-    },
-    {
-      id: "rampart-north-1",
-      type: "RAMPART",
-      gridX: 4,
-      gridY: 3,
-      durability: 1500,
-      maxDurability: 1500,
-      level: 1,
-      condition: "Intact",
-      tokenId: 1,
-      attestationHash: "0x33b112...rampart",
-    },
-    {
-      id: "rampart-north-2",
-      type: "RAMPART",
-      gridX: 5,
-      gridY: 3,
-      durability: 1500,
-      maxDurability: 1500,
-      level: 1,
-      condition: "Intact",
-      tokenId: 2,
-      attestationHash: "0x44c213...rampart",
-    },
-    {
-      id: "rampart-north-3",
-      type: "RAMPART",
-      gridX: 6,
-      gridY: 3,
-      durability: 1500,
-      maxDurability: 1500,
-      level: 1,
-      condition: "Intact",
-      tokenId: 3,
-      attestationHash: "0x55d314...rampart",
-    },
-    {
-      id: "ballista-north",
-      type: "BALLISTA",
-      gridX: 5,
-      gridY: 4,
-      durability: 800,
-      maxDurability: 800,
-      level: 1,
-      condition: "Intact",
-      tokenId: 4,
-      attestationHash: "0x66e415...ballista",
-    },
-    {
-      id: "pylon-east",
-      type: "SUNSTONE_PYLON",
-      gridX: 7,
-      gridY: 5,
-      durability: 600,
-      maxDurability: 600,
-      level: 1,
-      condition: "Intact",
-      tokenId: 5,
-      attestationHash: "0x77f516...pylon",
-    },
-    {
-      id: "quarry-1",
-      type: "QUARRY",
-      gridX: 3,
-      gridY: 6,
-      durability: 500,
-      maxDurability: 500,
-      level: 1,
-      condition: "Intact",
-    },
-    {
-      id: "farm-1",
-      type: "FARM",
-      gridX: 4,
-      gridY: 6,
-      durability: 400,
-      maxDurability: 400,
-      level: 1,
-      condition: "Intact",
-    },
-  ]);
+  const [structures, setStructures] = useState<PlacedStructure[]>(INITIAL_STRUCTURES);
 
   // Player Resource Vault
-  const [resources, setResources] = useState<Resources>({
-    stone: 240,
-    energy: 180,
-    food: 200,
-    aegisAlloy: 45,
-  });
+  const [resources, setResources] = useState<Resources>(INITIAL_RESOURCES);
 
   // Cross-Chain Market Multipliers (Phase 2 Economy)
   const [marketCondition, setMarketCondition] = useState<MarketConditionState>({
@@ -164,16 +177,20 @@ export function useBastionGame() {
   // Latest Cryptographic Proof for Inspector Modal
   const [latestPayload, setLatestPayload] = useState<AttestationPayload | null>(null);
   const [isProofModalOpen, setIsProofModalOpen] = useState(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 
   // Web3 Wallet State (populated from Privy)
   const { ready, authenticated, login, logout, getAccessToken } = usePrivy();
   const { wallets } = useWallets();
-  const { linkWallet } = useLinkAccount();
   const [account, setAccount] = useState<string | null>(null);
   const [balance, setBalance] = useState("12.45");
   const [networkId, setNetworkId] = useState<number | null>(CREDITCOIN_TESTNET.chainId);
   const [isSandboxMode, setIsSandboxMode] = useState(true);
   const [isStateLoaded, setIsStateLoaded] = useState(false);
+
+  // Paid continue-after-breach flow
+  const [isContinuing, setIsContinuing] = useState(false);
+  const [continueError, setContinueError] = useState<string | null>(null);
 
   // Compute Total Defense Power from Active Structures
   const totalDefensePower = structures.reduce((acc, s) => {
@@ -182,6 +199,28 @@ export function useBastionGame() {
     const power = def ? def.defensePower * s.level : 0;
     return acc + (s.condition === "Damaged" ? Math.floor(power * 0.5) : power);
   }, 0);
+
+  // Wipe all locally-held game/account state back to a clean slate (logout / session end)
+  const resetGameState = useCallback(() => {
+    setStructures(INITIAL_STRUCTURES);
+    setResources(INITIAL_RESOURCES);
+    setLevel(1);
+    setHighestLevelReached(1);
+    setWallStatus("standing");
+    setBattleState(null);
+    setTotalRepelled(0);
+    setTotalBreached(0);
+    setLastFiredStructureIds([]);
+    setLastQuirkEvents(null);
+    setLatestPayload(null);
+    setInspectedStructure(null);
+    setSelectedBuildingId(null);
+    setAccount(null);
+    setBalance("12.45");
+    setNetworkId(CREDITCOIN_TESTNET.chainId);
+    setIsStateLoaded(false);
+    setContinueError(null);
+  }, []);
 
   // Harvest Settlement Resources
   const handleHarvest = useCallback(() => {
@@ -273,9 +312,11 @@ export function useBastionGame() {
     [resources, inspectedStructure]
   );
 
-  // Upgrade Structure
+  // Upgrade Structure (capped at MAX_STRUCTURE_LEVEL)
   const handleUpgradeStructure = useCallback(
     (structureId: string) => {
+      const target = structures.find((s) => s.id === structureId);
+      if (!target || target.level >= MAX_STRUCTURE_LEVEL) return;
       if (resources.stone < 40 || resources.energy < 20) return;
       setResources((prev) => ({
         ...prev,
@@ -308,7 +349,71 @@ export function useBastionGame() {
         );
       }
     },
-    [resources, inspectedStructure]
+    [resources, inspectedStructure, structures]
+  );
+
+  // Heal every damaged/destroyed structure at once (20 Stone each, matches single Repair cost)
+  const handleHealAll = useCallback(() => {
+    const damaged = structures.filter((s) => s.durability < s.maxDurability);
+    if (damaged.length === 0) return;
+    const cost = damaged.length * 20;
+    if (resources.stone < cost) return;
+
+    setResources((prev) => ({ ...prev, stone: prev.stone - cost }));
+    setStructures((prev) =>
+      prev.map((s) =>
+        s.durability < s.maxDurability
+          ? { ...s, durability: s.maxDurability, condition: "Intact" }
+          : s
+      )
+    );
+    setInspectedStructure((prev) =>
+      prev && prev.durability < prev.maxDurability
+        ? { ...prev, durability: prev.maxDurability, condition: "Intact" }
+        : prev
+    );
+  }, [structures, resources]);
+
+  // Upgrade every eligible structure (Intact, below the level cap) at once
+  const handleUpgradeAll = useCallback(() => {
+    const eligible = structures.filter(
+      (s) => s.condition === "Intact" && s.level < MAX_STRUCTURE_LEVEL
+    );
+    if (eligible.length === 0) return;
+    const stoneCost = eligible.length * 40;
+    const energyCost = eligible.length * 20;
+    if (resources.stone < stoneCost || resources.energy < energyCost) return;
+
+    setResources((prev) => ({
+      ...prev,
+      stone: prev.stone - stoneCost,
+      energy: prev.energy - energyCost,
+    }));
+    setStructures((prev) =>
+      prev.map((s) => {
+        if (s.condition !== "Intact" || s.level >= MAX_STRUCTURE_LEVEL) return s;
+        const newMax = Math.floor(s.maxDurability * 1.3);
+        return { ...s, level: s.level + 1, maxDurability: newMax, durability: newMax };
+      })
+    );
+    setInspectedStructure((prev) => {
+      if (!prev || prev.condition !== "Intact" || prev.level >= MAX_STRUCTURE_LEVEL) return prev;
+      const newMax = Math.floor(prev.maxDurability * 1.3);
+      return { ...prev, level: prev.level + 1, maxDurability: newMax, durability: newMax };
+    });
+  }, [structures, resources]);
+
+  // Remove a structure from the grid, freeing its tile (no refund). The Citadel Core cannot be removed.
+  const handleRemoveStructure = useCallback(
+    (structureId: string) => {
+      setStructures((prev) => {
+        const target = prev.find((s) => s.id === structureId);
+        if (!target || target.type === "CITADEL") return prev;
+        return prev.filter((s) => s.id !== structureId);
+      });
+      setInspectedStructure((prev) => (prev && prev.id === structureId ? null : prev));
+    },
+    []
   );
 
   // Start the next Titan wave (level 1 on first call, or the current level after a restart)
@@ -325,12 +430,42 @@ export function useBastionGame() {
     }, 500);
   }, []);
 
-  // Restart the whole campaign after a Wall breach
+  // Start Over: reset the campaign to level 1 after a Wall breach (free, structures/resources untouched)
   const handleRestart = useCallback(() => {
     setLevel(1);
     setWallStatus("standing");
     setBattleState(createBattleStateForLevel(1));
   }, []);
+
+  // Continue from the last saved point (current level) after a breach — gated by a small on-chain fee
+  const handleContinueFromBreach = useCallback(async () => {
+    const wallet = wallets[0];
+    if (!wallet) {
+      setContinueError("Connect a wallet first.");
+      return;
+    }
+
+    setIsContinuing(true);
+    setContinueError(null);
+
+    try {
+      const injected = await wallet.getEthereumProvider();
+      const provider = new ethers.BrowserProvider(injected);
+      const signer = await provider.getSigner();
+      const tx = await signer.sendTransaction({
+        to: TREASURY_ADDRESS,
+        value: ethers.parseEther(CONTINUE_AFTER_BREACH_FEE_CTC),
+      });
+      await tx.wait();
+      setWallStatus("standing");
+      setBattleState(null);
+    } catch (err) {
+      console.error("Continue payment failed:", err);
+      setContinueError("Transaction failed or was rejected. Try again, or start over for free.");
+    } finally {
+      setIsContinuing(false);
+    }
+  }, [wallets]);
 
   // Real-time Battle Tick Loop: advances the Titan and fires ready defenses every TICK_MS
   const isBattleActive = battleState?.matchStatus === "active";
@@ -398,15 +533,22 @@ export function useBastionGame() {
     logout();
   }, [logout]);
 
-  // Link an additional wallet to the current account without logging out
-  const handleConnectAnotherAccount = useCallback(() => {
-    linkWallet();
-  }, [linkWallet]);
+  // Switch accounts: fully log out of the current identity, then open login for a different one
+  const handleConnectAnotherAccount = useCallback(async () => {
+    await logout();
+    login();
+  }, [logout, login]);
 
-  // Derive account/network/balance from the active Privy wallet (embedded or external)
+  // Derive account/network/balance from the active Privy wallet (embedded or external);
+  // clear them back out once the wallet list empties (e.g. after logout).
   useEffect(() => {
     const wallet = wallets[0];
-    if (!wallet) return;
+    if (!wallet) {
+      setAccount(null);
+      setBalance("12.45");
+      setNetworkId(CREDITCOIN_TESTNET.chainId);
+      return;
+    }
     let cancelled = false;
 
     (async () => {
@@ -473,6 +615,13 @@ export function useBastionGame() {
     }
   }, [wallets]);
 
+  // Reset all local state once the user is no longer authenticated (logout or session expiry)
+  useEffect(() => {
+    if (ready && !authenticated) {
+      resetGameState();
+    }
+  }, [ready, authenticated, resetGameState]);
+
   // Hydrate saved progress from Redis (via the backend) once the user is authenticated
   useEffect(() => {
     if (!ready || !authenticated) return;
@@ -522,6 +671,7 @@ export function useBastionGame() {
             wallStatus,
             totalRepelled,
             totalBreached,
+            account,
           } satisfies SavedGameState);
         } catch (err) {
           console.error("Failed to save state:", err);
@@ -540,6 +690,7 @@ export function useBastionGame() {
     wallStatus,
     totalRepelled,
     totalBreached,
+    account,
     getAccessToken,
   ]);
 
@@ -565,6 +716,10 @@ export function useBastionGame() {
     latestPayload,
     isProofModalOpen,
     setIsProofModalOpen,
+    isLeaderboardOpen,
+    setIsLeaderboardOpen,
+    isContinuing,
+    continueError,
     account,
     balance,
     networkId,
@@ -574,8 +729,12 @@ export function useBastionGame() {
     handlePlaceBuilding,
     handleRepairStructure,
     handleUpgradeStructure,
+    handleHealAll,
+    handleUpgradeAll,
+    handleRemoveStructure,
     handleStartWave,
     handleRestart,
+    handleContinueFromBreach,
     handleConnectWallet,
     handleSwitchNetwork,
     handleLogout,

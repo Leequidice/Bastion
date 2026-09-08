@@ -1,7 +1,7 @@
 import React from "react";
-import { Radio, AlertTriangle, ShieldAlert, CheckCircle, Skull, Swords } from "lucide-react";
+import { Radio, AlertTriangle, ShieldAlert, CheckCircle, Skull, Coins, RotateCcw } from "lucide-react";
 import { BattleState } from "../lib/battleEngine";
-import { COLOSSI_ARCHETYPES } from "../lib/constants";
+import { COLOSSI_ARCHETYPES, CONTINUE_AFTER_BREACH_FEE_CTC, CREDITCOIN_TESTNET } from "../lib/constants";
 
 interface IncursionRadarProps {
   level: number;
@@ -13,6 +13,9 @@ interface IncursionRadarProps {
   isStarting: boolean;
   onStartWave: () => void;
   onRestart: () => void;
+  onContinue: () => void;
+  isContinuing: boolean;
+  continueError: string | null;
 }
 
 export const IncursionRadar: React.FC<IncursionRadarProps> = ({
@@ -25,6 +28,9 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
   isStarting,
   onStartWave,
   onRestart,
+  onContinue,
+  isContinuing,
+  continueError,
 }) => {
   const titan = battleState?.titan ?? null;
   const archetypeInfo = titan ? COLOSSI_ARCHETYPES[titan.archetype] || COLOSSI_ARCHETYPES[0] : null;
@@ -70,12 +76,33 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
             The Titan reached the Wall at Level {level}. Humanity's line held for {highestLevelReached - 1} wave
             {highestLevelReached - 1 === 1 ? "" : "s"}.
           </p>
+
+          {continueError && (
+            <p className="text-[11px] text-red-400 bg-red-950/40 border border-red-900/60 rounded-lg px-3 py-2 w-full">
+              {continueError}
+            </p>
+          )}
+
+          <button
+            onClick={onContinue}
+            disabled={isContinuing}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-bold shadow-lg shadow-cyan-600/25 transition-all cursor-pointer disabled:opacity-50"
+          >
+            <Coins className="w-4 h-4" />
+            <span>
+              {isContinuing
+                ? "Confirming transaction..."
+                : `Continue from Level ${level} — pay ${CONTINUE_AFTER_BREACH_FEE_CTC} ${CREDITCOIN_TESTNET.currencySymbol}`}
+            </span>
+          </button>
+
           <button
             onClick={onRestart}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-gradient-to-r from-red-600 via-orange-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold shadow-lg shadow-red-600/30 transition-all cursor-pointer"
+            disabled={isContinuing}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition-all cursor-pointer disabled:opacity-50"
           >
-            <Swords className="w-4 h-4" />
-            <span>Rebuild the Wall &amp; Restart</span>
+            <RotateCcw className="w-4 h-4" />
+            <span>Start Over (Free)</span>
           </button>
         </div>
       ) : !battleState ? (

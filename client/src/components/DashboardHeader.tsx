@@ -10,6 +10,7 @@ import {
   LogOut,
   UserPlus,
   LifeBuoy,
+  Trophy,
 } from "lucide-react";
 import { CREDITCOIN_TESTNET } from "../lib/constants";
 
@@ -20,6 +21,7 @@ interface DashboardHeaderProps {
   onConnectWallet: () => void;
   onSwitchNetwork: () => void;
   onOpenProofModal: () => void;
+  onOpenLeaderboard: () => void;
   isSandboxMode: boolean;
   onToggleSandbox: () => void;
   onLogout: () => void;
@@ -33,6 +35,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   onConnectWallet,
   onSwitchNetwork,
   onOpenProofModal,
+  onOpenLeaderboard,
   isSandboxMode,
   onToggleSandbox,
   onLogout,
@@ -88,6 +91,16 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           <span className="text-[10px] bg-cyan-900/80 px-1.5 py-0.5 rounded text-cyan-200">
             INSPECT
           </span>
+        </button>
+
+        {/* Leaderboard */}
+        <button
+          onClick={onOpenLeaderboard}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-amber-800/60 text-amber-300 hover:bg-amber-950/50 transition-colors cursor-pointer"
+          title="View the Wall Watch leaderboard"
+        >
+          <Trophy className="w-3.5 h-3.5 text-amber-400" />
+          <span className="hidden sm:inline">Leaderboard</span>
         </button>
 
         {/* Mode Toggle */}

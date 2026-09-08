@@ -193,6 +193,14 @@ export const MAX_COOLDOWN_MS = 10000; // 10s hard cap
 export const MAX_COOLDOWN_TICKS = Math.round(MAX_COOLDOWN_MS / TICK_MS);
 export const COOLDOWN_GROWTH_PER_LEVEL = 1; // +1 tick of cooldown per upgrade level
 
+// --- Defense Structure Progression ---
+export const MAX_STRUCTURE_LEVEL = 50;
+
+// --- Paid Continue After Breach ---
+// Placeholder — swap in a real treasury/receiving address before this goes live.
+export const TREASURY_ADDRESS = "0x000000000000000000000000000000000000dEaD";
+export const CONTINUE_AFTER_BREACH_FEE_CTC = "0.05";
+
 // --- Titan Class Quirks (tunable) ---
 export const RADIOACTIVE_BASE_DAMAGE_PER_TICK = 40; // Colossus: scaled by proximity (0..1)
 export const ARMORED_HP_BONUS_MULTIPLIER = 1.1; // +10% HP

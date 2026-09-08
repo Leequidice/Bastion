@@ -1,7 +1,7 @@
 import React from "react";
 import { PlacedStructure } from "./CityCanvas";
-import { BUILDINGS } from "../lib/constants";
-import { Wrench, ArrowUpCircle, X, Shield, Lock, Hash } from "lucide-react";
+import { BUILDINGS, MAX_STRUCTURE_LEVEL } from "../lib/constants";
+import { Wrench, ArrowUpCircle, X, Shield, Hash, Trash2 } from "lucide-react";
 import { Resources } from "./ResourceBar";
 
 interface StructureInspectorProps {
@@ -9,6 +9,7 @@ interface StructureInspectorProps {
   onClose: () => void;
   onRepair: (structureId: string) => void;
   onUpgrade: (structureId: string) => void;
+  onRemove: (structureId: string) => void;
   resources: Resources;
 }
 
@@ -17,6 +18,7 @@ export const StructureInspector: React.FC<StructureInspectorProps> = ({
   onClose,
   onRepair,
   onUpgrade,
+  onRemove,
   resources,
 }) => {
   if (!structure) return null;
@@ -24,7 +26,10 @@ export const StructureInspector: React.FC<StructureInspectorProps> = ({
   const def = BUILDINGS[structure.type] || BUILDINGS.RAMPART;
   const hpRatio = structure.durability / structure.maxDurability;
   const canRepair = structure.durability < structure.maxDurability && resources.stone >= 20;
-  const canUpgrade = structure.condition === "Intact" && resources.stone >= 40 && resources.energy >= 20;
+  const isMaxLevel = structure.level >= MAX_STRUCTURE_LEVEL;
+  const canUpgrade =
+    structure.condition === "Intact" && !isMaxLevel && resources.stone >= 40 && resources.energy >= 20;
+  const isRemovable = structure.type !== "CITADEL";
 
   return (
     <div className="w-full bg-slate-950/90 border border-slate-800 rounded-xl p-4 shadow-xl backdrop-blur-md flex flex-col gap-3">
@@ -125,9 +130,19 @@ export const StructureInspector: React.FC<StructureInspectorProps> = ({
           className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white text-xs font-bold transition-all cursor-pointer shadow-md shadow-cyan-600/20"
         >
           <ArrowUpCircle className="w-3.5 h-3.5" />
-          <span>Upgrade (Lv.{structure.level + 1})</span>
+          <span>{isMaxLevel ? "Max Level" : `Upgrade (Lv.${structure.level + 1})`}</span>
         </button>
       </div>
+
+      <button
+        onClick={() => onRemove(structure.id)}
+        disabled={!isRemovable}
+        title={isRemovable ? undefined : "The Citadel Core cannot be removed"}
+        className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-red-950/60 border border-red-900/60 hover:bg-red-900/60 disabled:opacity-30 disabled:cursor-not-allowed text-red-300 text-xs font-bold transition-all cursor-pointer"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+        <span>Remove (frees tile, no refund)</span>
+      </button>
     </div>
   );
 };

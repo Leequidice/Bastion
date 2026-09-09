@@ -8,9 +8,9 @@ interface LeaderboardProps {
 }
 
 const MEDAL_COLORS: Record<number, string> = {
-  1: "text-amber-400",
-  2: "text-slate-300",
-  3: "text-orange-400",
+  1: "text-accent-500",
+  2: "text-ink-faint",
+  3: "text-[#7a5a11]",
 };
 
 function formatDisplayName(entry: LeaderboardEntry): string {
@@ -42,33 +42,33 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ isOpen, onClose }) => 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-slate-950 border border-amber-800/60 rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl shadow-amber-950/40 overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-dark-deep/85 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="panel-parchment rounded-md w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
+        <div className="px-6 py-4 border-b border-rule flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-amber-950 border border-amber-800 flex items-center justify-center text-amber-400">
+            <div className="w-9 h-9 rounded-sm border border-accent-500 flex items-center justify-center text-accent-700">
               <Trophy className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100 uppercase tracking-wider">
+              <h2 className="text-lg font-display text-ink">
                 Wall Watch Leaderboard
               </h2>
-              <p className="text-xs text-slate-400">Highest wave held, across every commander</p>
+              <p className="text-xs text-ink-faint italic">Highest wave held, across every commander</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={load}
               disabled={isLoading}
-              className="text-slate-400 hover:text-white transition-colors cursor-pointer disabled:opacity-40"
+              className="text-ink-faint hover:text-ink transition-colors cursor-pointer disabled:opacity-40"
               title="Refresh"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
             </button>
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+              className="text-ink-faint hover:text-ink transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -78,32 +78,32 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ isOpen, onClose }) => 
         {/* Content */}
         <div className="p-4 overflow-y-auto flex flex-col gap-1.5">
           {error ? (
-            <p className="text-xs text-red-400 text-center py-6">{error}</p>
+            <p className="text-xs text-[#7a2318] text-center py-6">{error}</p>
           ) : isLoading && entries.length === 0 ? (
-            <p className="text-xs text-slate-500 text-center py-6">Loading rankings...</p>
+            <p className="text-xs text-ink-faint text-center py-6 italic">Loading rankings...</p>
           ) : entries.length === 0 ? (
-            <p className="text-xs text-slate-500 text-center py-6 italic">
+            <p className="text-xs text-ink-faint text-center py-6 italic">
               No commanders have repelled a wave yet. Be the first.
             </p>
           ) : (
             entries.map((entry) => (
               <div
                 key={entry.userId}
-                className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-slate-900/70 border border-slate-800"
+                className="flex items-center justify-between gap-3 px-3 py-2 rounded-sm border border-rule"
               >
                 <div className="flex items-center gap-3">
                   <span
                     className={`w-6 text-sm font-mono font-bold text-center ${
-                      MEDAL_COLORS[entry.rank] || "text-slate-500"
+                      MEDAL_COLORS[entry.rank] || "text-ink-faint"
                     }`}
                   >
                     {entry.rank <= 3 ? <Medal className="w-4 h-4 inline" /> : entry.rank}
                   </span>
-                  <span className="text-xs font-mono text-slate-200">
+                  <span className="text-xs font-mono text-ink">
                     {formatDisplayName(entry)}
                   </span>
                 </div>
-                <span className="text-sm font-mono font-bold text-cyan-400">
+                <span className="text-sm font-mono font-bold text-accent-700">
                   Lv.{entry.level}
                 </span>
               </div>

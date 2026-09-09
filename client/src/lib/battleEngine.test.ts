@@ -171,14 +171,16 @@ describe("tickBattle", () => {
   });
 
   it("respects structure cooldowns: a structure does not fire again until its cooldown elapses", () => {
+    // RAMPART has cooldownTicks=2 (BALLISTA is down to 1 tick after the 25% attack-speed pass,
+    // which leaves no cooldown gap to observe here).
     const state = createBattleStateForLevel(1);
-    let structures = [makeStructure({ level: 1 })];
+    let structures = [makeStructure({ type: "RAMPART", level: 1 })];
     let battle = state;
 
     const tick1 = tickBattle(battle, structures);
     battle = tick1.state;
     structures = tick1.structures;
-    expect(battle.titan.hp).toBe(state.titan.hp - 450); // fired tick 1
+    expect(battle.titan.hp).toBe(state.titan.hp - 120); // fired tick 1
 
     const tick2 = tickBattle(battle, structures);
     battle = tick2.state;
@@ -186,7 +188,7 @@ describe("tickBattle", () => {
     expect(battle.titan.hp).toBe(tick1.state.titan.hp); // cooling down, no fire tick 2
 
     const tick3 = tickBattle(battle, structures);
-    expect(tick3.state.titan.hp).toBe(battle.titan.hp - 450); // fires again tick 3 (cooldownTicks=2)
+    expect(tick3.state.titan.hp).toBe(battle.titan.hp - 120); // fires again tick 3 (cooldownTicks=2)
   });
 
   it("Damaged structures deal half damage, Destroyed structures deal none", () => {

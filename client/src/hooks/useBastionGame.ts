@@ -7,12 +7,14 @@ import {
   MAX_STRUCTURE_LEVEL,
   TREASURY_ADDRESS,
   CONTINUE_AFTER_BREACH_FEE_CTC,
+  HEAL_ALL_FEE_CTC,
+  MIN_TX_GAS_BUFFER_CTC,
 } from "../lib/constants";
 import { PlacedStructure } from "../components/CityCanvas";
 import { Resources, MarketConditionState } from "../components/ResourceBar";
 import { generateAttestationPayload, AttestationPayload } from "../lib/attestationHelper";
 import { createBattleStateForLevel, tickBattle, BattleState, QuirkEvents } from "../lib/battleEngine";
-import { getState, saveState } from "../lib/api";
+import { getState, saveState, requestFaucetDrip } from "../lib/api";
 import confetti from "canvas-confetti";
 import { ethers } from "ethers";
 
@@ -192,6 +194,14 @@ export function useBastionGame() {
   const [isContinuing, setIsContinuing] = useState(false);
   const [continueError, setContinueError] = useState<string | null>(null);
 
+  // Per-structure-type "Heal All" flow, triggered from the build palette (on-chain fee)
+  const [healingType, setHealingType] = useState<string | null>(null);
+  const [healError, setHealError] = useState<string | null>(null);
+
+  // Faucet drip: true for the window between "no saved state found" (brand new
+  // account) and the one-time drip request resolving.
+  const [isNewUser, setIsNewUser] = useState(false);
+
   // Compute Total Defense Power from Active Structures
   const totalDefensePower = structures.reduce((acc, s) => {
     if (s.condition === "Destroyed") return acc;
@@ -220,6 +230,8 @@ export function useBastionGame() {
     setNetworkId(CREDITCOIN_TESTNET.chainId);
     setIsStateLoaded(false);
     setContinueError(null);
+    setHealError(null);
+    setIsNewUser(false);
   }, []);
 
   // Harvest Settlement Resources
@@ -352,56 +364,96 @@ export function useBastionGame() {
     [resources, inspectedStructure, structures]
   );
 
-  // Heal every damaged/destroyed structure at once (20 Stone each, matches single Repair cost)
-  const handleHealAll = useCallback(() => {
-    const damaged = structures.filter((s) => s.durability < s.maxDurability);
-    if (damaged.length === 0) return;
-    const cost = damaged.length * 20;
-    if (resources.stone < cost) return;
+  // Heal every damaged/destroyed structure of one type at once — gated by a small
+  // on-chain fee (paid once per click, regardless of how many structures are healed)
+  // rather than in-game resources.
+  const handleHealAllOfType = useCallback(
+    async (type: string) => {
+      const damaged = structures.filter((s) => s.type === type && s.durability < s.maxDurability);
+      if (damaged.length === 0) return;
 
-    setResources((prev) => ({ ...prev, stone: prev.stone - cost }));
-    setStructures((prev) =>
-      prev.map((s) =>
-        s.durability < s.maxDurability
-          ? { ...s, durability: s.maxDurability, condition: "Intact" }
-          : s
-      )
-    );
-    setInspectedStructure((prev) =>
-      prev && prev.durability < prev.maxDurability
-        ? { ...prev, durability: prev.maxDurability, condition: "Intact" }
-        : prev
-    );
-  }, [structures, resources]);
+      const wallet = wallets[0];
+      if (!wallet) {
+        setHealError("Connect a wallet first.");
+        return;
+      }
 
-  // Upgrade every eligible structure (Intact, below the level cap) at once
-  const handleUpgradeAll = useCallback(() => {
-    const eligible = structures.filter(
-      (s) => s.condition === "Intact" && s.level < MAX_STRUCTURE_LEVEL
-    );
-    if (eligible.length === 0) return;
-    const stoneCost = eligible.length * 40;
-    const energyCost = eligible.length * 20;
-    if (resources.stone < stoneCost || resources.energy < energyCost) return;
+      const required = Number(HEAL_ALL_FEE_CTC) + Number(MIN_TX_GAS_BUFFER_CTC);
+      if (Number(balance) < required) {
+        setHealError(
+          `You need at least ${required.toFixed(2)} tCTC to cover this (have ${balance}). Visit the faucet to top up.`
+        );
+        return;
+      }
 
-    setResources((prev) => ({
-      ...prev,
-      stone: prev.stone - stoneCost,
-      energy: prev.energy - energyCost,
-    }));
-    setStructures((prev) =>
-      prev.map((s) => {
-        if (s.condition !== "Intact" || s.level >= MAX_STRUCTURE_LEVEL) return s;
-        const newMax = Math.floor(s.maxDurability * 1.3);
-        return { ...s, level: s.level + 1, maxDurability: newMax, durability: newMax };
-      })
-    );
-    setInspectedStructure((prev) => {
-      if (!prev || prev.condition !== "Intact" || prev.level >= MAX_STRUCTURE_LEVEL) return prev;
-      const newMax = Math.floor(prev.maxDurability * 1.3);
-      return { ...prev, level: prev.level + 1, maxDurability: newMax, durability: newMax };
-    });
-  }, [structures, resources]);
+      setHealingType(type);
+      setHealError(null);
+
+      try {
+        const injected = await wallet.getEthereumProvider();
+        const provider = new ethers.BrowserProvider(injected);
+        const signer = await provider.getSigner();
+        const tx = await signer.sendTransaction({
+          to: TREASURY_ADDRESS,
+          value: ethers.parseEther(HEAL_ALL_FEE_CTC),
+        });
+        await tx.wait();
+
+        setStructures((prev) =>
+          prev.map((s) =>
+            s.type === type && s.durability < s.maxDurability
+              ? { ...s, durability: s.maxDurability, condition: "Intact" }
+              : s
+          )
+        );
+        setInspectedStructure((prev) =>
+          prev && prev.type === type && prev.durability < prev.maxDurability
+            ? { ...prev, durability: prev.maxDurability, condition: "Intact" }
+            : prev
+        );
+      } catch (err) {
+        console.error("Heal All payment failed:", err);
+        setHealError("Transaction failed or was rejected.");
+      } finally {
+        setHealingType(null);
+      }
+    },
+    [structures, wallets, balance]
+  );
+
+  // Upgrade every eligible structure of one type (Intact, below the level cap) at once
+  const handleUpgradeAllOfType = useCallback(
+    (type: string) => {
+      const eligible = structures.filter(
+        (s) => s.type === type && s.condition === "Intact" && s.level < MAX_STRUCTURE_LEVEL
+      );
+      if (eligible.length === 0) return;
+      const stoneCost = eligible.length * 40;
+      const energyCost = eligible.length * 20;
+      if (resources.stone < stoneCost || resources.energy < energyCost) return;
+
+      setResources((prev) => ({
+        ...prev,
+        stone: prev.stone - stoneCost,
+        energy: prev.energy - energyCost,
+      }));
+      setStructures((prev) =>
+        prev.map((s) => {
+          if (s.type !== type || s.condition !== "Intact" || s.level >= MAX_STRUCTURE_LEVEL) return s;
+          const newMax = Math.floor(s.maxDurability * 1.3);
+          return { ...s, level: s.level + 1, maxDurability: newMax, durability: newMax };
+        })
+      );
+      setInspectedStructure((prev) => {
+        if (!prev || prev.type !== type || prev.condition !== "Intact" || prev.level >= MAX_STRUCTURE_LEVEL) {
+          return prev;
+        }
+        const newMax = Math.floor(prev.maxDurability * 1.3);
+        return { ...prev, level: prev.level + 1, maxDurability: newMax, durability: newMax };
+      });
+    },
+    [structures, resources]
+  );
 
   // Remove a structure from the grid, freeing its tile (no refund). The Citadel Core cannot be removed.
   const handleRemoveStructure = useCallback(
@@ -445,6 +497,14 @@ export function useBastionGame() {
       return;
     }
 
+    const required = Number(CONTINUE_AFTER_BREACH_FEE_CTC) + Number(MIN_TX_GAS_BUFFER_CTC);
+    if (Number(balance) < required) {
+      setContinueError(
+        `You need at least ${required.toFixed(2)} tCTC to cover this (have ${balance}). Visit the faucet to top up, or start over for free.`
+      );
+      return;
+    }
+
     setIsContinuing(true);
     setContinueError(null);
 
@@ -465,7 +525,7 @@ export function useBastionGame() {
     } finally {
       setIsContinuing(false);
     }
-  }, [wallets]);
+  }, [wallets, balance]);
 
   // Real-time Battle Tick Loop: advances the Titan and fires ready defenses every TICK_MS
   const isBattleActive = battleState?.matchStatus === "active";
@@ -641,6 +701,10 @@ export function useBastionGame() {
           setWallStatus(saved.wallStatus);
           setTotalRepelled(saved.totalRepelled);
           setTotalBreached(saved.totalBreached);
+        } else {
+          // No saved state at all — this is the first time we've ever seen this
+          // account, so it qualifies for the one-time faucet drip.
+          setIsNewUser(true);
         }
       } catch (err) {
         console.error("Failed to load saved state:", err);
@@ -653,6 +717,28 @@ export function useBastionGame() {
       cancelled = true;
     };
   }, [ready, authenticated, getAccessToken]);
+
+  // One-time faucet drip for brand-new accounts, once we have a wallet address to send to
+  useEffect(() => {
+    if (!isNewUser || !account) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const token = await getAccessToken();
+        if (!token) return;
+        await requestFaucetDrip(token, account);
+      } catch (err) {
+        console.error("Faucet drip request failed:", err);
+      } finally {
+        if (!cancelled) setIsNewUser(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isNewUser, account, getAccessToken]);
 
   // Autosave progress to Redis (debounced) whenever it changes post-hydration
   useEffect(() => {
@@ -720,6 +806,8 @@ export function useBastionGame() {
     setIsLeaderboardOpen,
     isContinuing,
     continueError,
+    healingType,
+    healError,
     account,
     balance,
     networkId,
@@ -729,8 +817,8 @@ export function useBastionGame() {
     handlePlaceBuilding,
     handleRepairStructure,
     handleUpgradeStructure,
-    handleHealAll,
-    handleUpgradeAll,
+    handleHealAllOfType,
+    handleUpgradeAllOfType,
     handleRemoveStructure,
     handleStartWave,
     handleRestart,

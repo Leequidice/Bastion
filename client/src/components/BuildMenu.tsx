@@ -1,12 +1,29 @@
 import React from "react";
-import { BUILDINGS, BuildingDefinition } from "../lib/constants";
-import { Layers, Crosshair, Zap, Hammer, Wheat, Sun, Shield } from "lucide-react";
+import { BUILDINGS, MAX_STRUCTURE_LEVEL, FAUCET_URL } from "../lib/constants";
+import {
+  Layers,
+  Crosshair,
+  Zap,
+  Hammer,
+  Wheat,
+  Sun,
+  Shield,
+  HeartPulse,
+  ArrowUpCircle,
+  Droplets,
+} from "lucide-react";
 import { Resources } from "./ResourceBar";
+import { PlacedStructure } from "./CityCanvas";
 
 interface BuildMenuProps {
   selectedBuildingId: string | null;
   onSelectBuilding: (buildingId: string | null) => void;
   resources: Resources;
+  structures: PlacedStructure[];
+  onHealAllOfType: (type: string) => void;
+  onUpgradeAllOfType: (type: string) => void;
+  healingType: string | null;
+  healError: string | null;
 }
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -23,19 +40,41 @@ export const BuildMenu: React.FC<BuildMenuProps> = ({
   selectedBuildingId,
   onSelectBuilding,
   resources,
+  structures,
+  onHealAllOfType,
+  onUpgradeAllOfType,
+  healingType,
+  healError,
 }) => {
-  const buildingList = Object.values(BUILDINGS).filter((b) => b.category !== "core");
+  const buildingList = Object.values(BUILDINGS).filter(
+    (b) => b.category !== "core",
+  );
 
   return (
-    <div className="w-full bg-slate-950/80 border border-slate-800 rounded-xl p-4 shadow-xl backdrop-blur-md flex flex-col gap-3">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-        <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider">
+    <div className="w-full panel-parchment rounded-md p-4 shadow-xl flex flex-col gap-3">
+      <div className="flex items-center justify-between border-b border-rule pb-2">
+        <h2 className="text-base font-display text-ink">
           Construction Palette
         </h2>
-        <span className="text-[11px] text-slate-400">
-          Select structure & click tile
+        <span className="kicker text-[9px] text-ink-faint">
+          Select & click tile
         </span>
       </div>
+
+      {healError && (
+        <div className="text-[11px] text-[#7a2318] border border-[#7a2318]/50 rounded-sm px-2 py-1.5 flex flex-col gap-1">
+          <span>{healError}</span>
+          <a
+            href={FAUCET_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 self-start text-accent-700 hover:text-accent-900 font-semibold"
+          >
+            <Droplets className="w-3 h-3" />
+            Visit Faucet
+          </a>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {buildingList.map((b) => {
@@ -46,37 +85,76 @@ export const BuildMenu: React.FC<BuildMenuProps> = ({
             resources.food >= b.cost.food &&
             resources.aegisAlloy >= b.cost.alloy;
 
-          return (
-            <button
-              key={b.id}
-              onClick={() => onSelectBuilding(isSelected ? null : b.id)}
-              className={`p-2.5 rounded-lg border text-left flex flex-col justify-between gap-1.5 transition-all cursor-pointer ${
-                isSelected
-                  ? "bg-cyan-950/70 border-cyan-500 shadow-md shadow-cyan-500/20"
-                  : canAfford
-                  ? "bg-slate-900/90 border-slate-800 hover:border-slate-700 hover:bg-slate-800/80"
-                  : "bg-slate-950 border-slate-900 opacity-40 cursor-not-allowed"
-              }`}
-            >
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-1.5 font-bold text-xs text-slate-200">
-                  <span className="text-cyan-400">{ICONS[b.icon]}</span>
-                  <span className="truncate">{b.name}</span>
-                </div>
-                {b.defensePower > 0 && (
-                  <span className="text-[10px] font-mono text-emerald-400 font-semibold">
-                    +{b.defensePower}
-                  </span>
-                )}
-              </div>
+          const ofType = structures.filter((s) => s.type === b.id);
+          const damagedCount = ofType.filter(
+            (s) => s.durability < s.maxDurability,
+          ).length;
+          const upgradeEligibleCount = ofType.filter(
+            (s) => s.condition === "Intact" && s.level < MAX_STRUCTURE_LEVEL,
+          ).length;
+          const canHeal = damagedCount > 0;
+          const canUpgrade =
+            upgradeEligibleCount > 0 &&
+            resources.stone >= upgradeEligibleCount * 40 &&
+            resources.energy >= upgradeEligibleCount * 20;
+          const isHealingThisType = healingType === b.id;
 
-              <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-400">
-                {b.cost.stone > 0 && <span>{b.cost.stone} Stone</span>}
-                {b.cost.energy > 0 && <span>{b.cost.energy} Energy</span>}
-                {b.cost.food > 0 && <span>{b.cost.food} Food</span>}
-                {b.cost.alloy > 0 && <span>{b.cost.alloy} Alloy</span>}
-              </div>
-            </button>
+          return (
+            <div key={b.id} className="flex flex-col gap-1">
+              <button
+                onClick={() => onSelectBuilding(isSelected ? null : b.id)}
+                className={`w-full p-2.5 rounded-sm border text-left flex flex-col justify-between gap-1.5 transition-all cursor-pointer min-h-[7.5rem] ${
+                  isSelected
+                    ? "border-accent-500 bg-accent-300/15"
+                    : canAfford
+                      ? "border-rule hover:border-accent-500/60 hover:bg-accent-300/5"
+                      : "border-rule opacity-40 cursor-not-allowed"
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-1.5 font-semibold text-xs text-ink">
+                    <span className="text-accent-700">{ICONS[b.icon]}</span>
+                    <span className="truncate">{b.name}</span>
+                  </div>
+                  {b.defensePower > 0 && (
+                    <span className="text-[10px] font-mono text-accent-700 font-semibold">
+                      +{b.defensePower}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-ink-faint">
+                  {b.cost.stone > 0 && <span>{b.cost.stone} Stone</span>}
+                  {b.cost.energy > 0 && <span>{b.cost.energy} Energy</span>}
+                  {b.cost.food > 0 && <span>{b.cost.food} Food</span>}
+                  {b.cost.alloy > 0 && <span>{b.cost.alloy} Alloy</span>}
+                </div>
+                {ofType.length > 0 && (
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => onHealAllOfType(b.id)}
+                      disabled={!canHeal || isHealingThisType}
+                      title="Heal every damaged structure of this type (small on-chain fee)"
+                      className="!btn-manuscript-dark flex gap-1 flex-1 py-1.5 items-center rounded-sm text-[10px] "
+                    >
+                      <HeartPulse className="w-3 h-3" />
+                      <span>
+                        {isHealingThisType ? "Confirming..." : "Heal All"}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => onUpgradeAllOfType(b.id)}
+                      disabled={!canUpgrade}
+                      title="Upgrade every eligible structure of this type by one level"
+                      className="!btn-manuscript-dark flex gap-1 items-center flex-1 py-1.5 rounded-sm text-[10px] "
+                    >
+                      <ArrowUpCircle className="w-3 h-3" />
+                      <span>Upgrade</span>
+                    </button>
+                  </div>
+                )}
+              </button>
+            </div>
           );
         })}
       </div>

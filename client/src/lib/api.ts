@@ -34,3 +34,15 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
   const { entries } = await res.json();
   return entries;
 }
+
+export async function requestFaucetDrip(token: string, address: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/faucet`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ address }),
+  });
+  if (!res.ok) throw new Error(`requestFaucetDrip failed: ${res.status}`);
+}

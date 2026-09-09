@@ -54,9 +54,10 @@ export const BUILDINGS: Record<string, BuildingDefinition> = {
     cost: { stone: 0, energy: 0, food: 0, alloy: 0 },
     defensePower: 300,
     maxDurability: 3000,
-    description: "The supreme command center of the settlement. Must never fall.",
+    description:
+      "The supreme command center of the settlement. Must never fall.",
     icon: "Shield",
-    cooldownTicks: 2,
+    cooldownTicks: 1, // was 2; shortened 25% (floor, min 1 tick)
   },
   RAMPART: {
     id: "RAMPART",
@@ -65,9 +66,10 @@ export const BUILDINGS: Record<string, BuildingDefinition> = {
     cost: { stone: 40, energy: 5, food: 0, alloy: 0 },
     defensePower: 120,
     maxDurability: 1500,
-    description: "Reinforced granite wall designed to absorb devastating blunt siege attacks.",
+    description:
+      "Reinforced granite wall designed to absorb devastating blunt siege attacks.",
     icon: "Layers",
-    cooldownTicks: 3,
+    cooldownTicks: 2, // was 3; shortened 25% (floor, min 1 tick)
   },
   BALLISTA: {
     id: "BALLISTA",
@@ -76,9 +78,10 @@ export const BUILDINGS: Record<string, BuildingDefinition> = {
     cost: { stone: 60, energy: 25, food: 0, alloy: 10 },
     defensePower: 450,
     maxDurability: 800,
-    description: "Heavy ranged counter-battery firing forged armor-piercing iron bolts.",
+    description:
+      "Heavy ranged counter-battery firing forged armor-piercing iron bolts.",
     icon: "Crosshair",
-    cooldownTicks: 2,
+    cooldownTicks: 1, // was 2; shortened 25% (floor, min 1 tick)
   },
   SUNSTONE_PYLON: {
     id: "SUNSTONE_PYLON",
@@ -87,9 +90,10 @@ export const BUILDINGS: Record<string, BuildingDefinition> = {
     cost: { stone: 50, energy: 70, food: 0, alloy: 20 },
     defensePower: 650,
     maxDurability: 600,
-    description: "Arcane energy projector emitting focused plasma arcs against flying and armored Colossi.",
+    description:
+      "Arcane energy projector emitting focused plasma arcs against flying and armored Colossi.",
     icon: "Zap",
-    cooldownTicks: 1,
+    cooldownTicks: 1, // already at the 1-tick floor; can't shorten further at this TICK_MS granularity
   },
   QUARRY: {
     id: "QUARRY",
@@ -108,7 +112,8 @@ export const BUILDINGS: Record<string, BuildingDefinition> = {
     cost: { stone: 15, energy: 15, food: 10, alloy: 0 },
     defensePower: 10,
     maxDurability: 400,
-    description: "Cultivates vital grains and rations to sustain the city garrison.",
+    description:
+      "Cultivates vital grains and rations to sustain the city garrison.",
     icon: "Wheat",
   },
   ENERGY_COLLECTOR: {
@@ -118,7 +123,8 @@ export const BUILDINGS: Record<string, BuildingDefinition> = {
     cost: { stone: 30, energy: 30, food: 0, alloy: 5 },
     defensePower: 30,
     maxDurability: 550,
-    description: "Channels radiant planetary geothermal energy into stored batteries.",
+    description:
+      "Channels radiant planetary geothermal energy into stored batteries.",
     icon: "Sun",
   },
 };
@@ -140,7 +146,8 @@ export const COLOSSI_ARCHETYPES = [
     type: 1,
     name: "Dread Strider",
     title: "The Skittering Nightmare",
-    description: "A rapid predator that lashes out at the nearest defense every few seconds while closing the distance.",
+    description:
+      "A rapid predator that lashes out at the nearest defense every few seconds while closing the distance.",
     color: "#a855f7", // Purple
     weakness: "Ballista Bolts",
     class: "beast" as TitanClass,
@@ -149,7 +156,8 @@ export const COLOSSI_ARCHETYPES = [
     type: 2,
     name: "Ironclad Gorger",
     title: "The Ore Devourer",
-    description: "Plated in heavy slag armor; periodically breaks into a devastating sprint that flattens anything in its path.",
+    description:
+      "Plated in heavy slag armor; periodically breaks into a devastating sprint that flattens anything in its path.",
     color: "#eab308", // Yellow
     weakness: "Aegis Ramparts",
     class: "armored" as TitanClass,
@@ -158,7 +166,8 @@ export const COLOSSI_ARCHETYPES = [
     type: 3,
     name: "Tempest Goliath",
     title: "The Storm Bringer",
-    description: "Crackling with lightning, she calls forth two lightning wisps to shield herself from focused fire.",
+    description:
+      "Crackling with lightning, she calls forth two lightning wisps to shield herself from focused fire.",
     color: "#06b6d4", // Cyan
     weakness: "Concentrated Fire",
     class: "female" as TitanClass,
@@ -189,23 +198,38 @@ export const TICK_MS = 400; // battle tick interval
 // --- Defense Cooldown Scaling (tunable) ---
 // Stronger (higher-level) defenses hit harder but fire less often, capped so no
 // structure ever takes longer than MAX_COOLDOWN_MS between shots.
-export const MAX_COOLDOWN_MS = 10000; // 10s hard cap
+// Whole formula shortened 25% (base ticks, per-level growth, and the cap all x0.75)
+// so every defense fires 25% faster at every level, not just at level 1.
+export const MAX_COOLDOWN_MS = 7500; // was 10000; 10s hard cap x0.75
 export const MAX_COOLDOWN_TICKS = Math.round(MAX_COOLDOWN_MS / TICK_MS);
-export const COOLDOWN_GROWTH_PER_LEVEL = 1; // +1 tick of cooldown per upgrade level
+export const COOLDOWN_GROWTH_PER_LEVEL = 0.75; // was 1; +1 tick of cooldown per upgrade level x0.75
 
 // --- Defense Structure Progression ---
 export const MAX_STRUCTURE_LEVEL = 50;
 
 // --- Paid Continue After Breach ---
 // Placeholder — swap in a real treasury/receiving address before this goes live.
-export const TREASURY_ADDRESS = "0x000000000000000000000000000000000000dEaD";
-export const CONTINUE_AFTER_BREACH_FEE_CTC = "0.05";
+export const TREASURY_ADDRESS = "0x91E2BcD580a489546DC04a69973D276d2F192894";
+export const CONTINUE_AFTER_BREACH_FEE_CTC = "0.5";
+
+// --- Paid Heal All (per structure type, triggered from the build palette) ---
+export const HEAL_ALL_FEE_CTC = "0.2";
+
+// --- Faucet Drip (new-signup funding + manual top-up) ---
+// Authoritative drip amount lives server-side (DRIP_AMOUNT_CTC in server/.env); this
+// is only used for UI copy ("new accounts receive X tCTC").
+export const DRIP_AMOUNT_CTC = "1";
+export const FAUCET_URL = "https://discord.gg/RpCUu6Jc";
+
+// Rough headroom above a fee to leave room for gas, used for pre-flight balance checks
+// so a paid action can be blocked with a clear message before ever prompting a signature.
+export const MIN_TX_GAS_BUFFER_CTC = "0.02";
 
 // --- Titan Class Quirks (tunable) ---
 export const RADIOACTIVE_BASE_DAMAGE_PER_TICK = 40; // Colossus: scaled by proximity (0..1)
-export const ARMORED_HP_BONUS_MULTIPLIER = 1.1; // +10% HP
+export const ARMORED_HP_BONUS_MULTIPLIER = 1.2; // +10% HP
 export const ARMORED_SPRINT_ROWS = 4;
 export const ARMORED_TIMER_SEQUENCE_MS = [15000, 20000, 25000]; // holds at 25000 after
 export const FEMALE_TIMER_SEQUENCE_MS = [20000, 30000, 40000]; // holds at 40000 after
 export const FEMALE_MINION_HP_RATIO = 0.2; // each minion = 20% of the Titan's max HP
-export const BEAST_ATTACK_INTERVAL_MS = 8000; // fixed, no escalation
+export const BEAST_ATTACK_INTERVAL_MS = 4000; // fixed, no escalation

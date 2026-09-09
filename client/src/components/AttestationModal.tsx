@@ -1,5 +1,5 @@
 import React from "react";
-import { X, Cpu, ShieldCheck, ExternalLink, Code2, Layers, CheckCircle2 } from "lucide-react";
+import { X, Cpu, ShieldCheck, ExternalLink, Code2 } from "lucide-react";
 import { CREDITCOIN_TESTNET, SOURCE_CHAINS } from "../lib/constants";
 import { AttestationPayload, calculateVerificationCost } from "../lib/attestationHelper";
 
@@ -21,29 +21,29 @@ export const AttestationModal: React.FC<AttestationModalProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-slate-950 border border-cyan-800/80 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl shadow-cyan-950/50 overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-dark-deep/85 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="panel-parchment rounded-md w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
+        <div className="px-6 py-4 border-b border-rule flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-cyan-950 border border-cyan-800 flex items-center justify-center text-cyan-400">
+            <div className="w-9 h-9 rounded-sm border border-accent-500 flex items-center justify-center text-accent-700">
               <Cpu className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
+              <h2 className="text-lg font-display text-ink flex items-center gap-2">
                 Attestcoin Protocol Inspector
-                <span className="text-[10px] bg-cyan-900/60 text-cyan-300 px-2 py-0.5 rounded font-mono">
+                <span className="text-[10px] border border-accent-500/50 text-accent-700 px-2 py-0.5 rounded-sm font-mono">
                   0x0FD2
                 </span>
               </h2>
-              <p className="text-xs text-slate-400">
-                Native Cryptographic Verification Telemetry & Circuit Prover
+              <p className="text-xs text-ink-faint italic">
+                Native Cryptographic Verification Telemetry &amp; Circuit Prover
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+            className="text-ink-faint hover:text-ink transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -52,34 +52,34 @@ export const AttestationModal: React.FC<AttestationModalProps> = ({
         {/* Content Body */}
         <div className="p-6 overflow-y-auto space-y-5 text-xs">
           {/* Architectural Overview Alert */}
-          <div className="p-4 rounded-xl bg-cyan-950/30 border border-cyan-800/50 flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-cyan-300 font-bold text-sm">
-              <ShieldCheck className="w-4 h-4 text-cyan-400" />
+          <div className="p-4 rounded-sm border border-accent-500/40 flex flex-col gap-2 bg-accent-300/10">
+            <div className="flex items-center gap-2 text-accent-700 font-semibold text-sm">
+              <ShieldCheck className="w-4 h-4 text-accent-700" />
               <span>Why Attestcoin is Load-Bearing in Bastion:</span>
             </div>
-            <p className="text-slate-300 leading-relaxed">
-              Traditional Web3 city-builders rely on client-side RNG (vulnerable to memory modification) or centralized oracle relays (single point of failure). Bastion anchors all Colossi threat vectors and market scarcity directly to foreign chain transactions (Ethereum Sepolia). 
-              Creditcoin's <strong className="text-cyan-300">Block Prover Precompile (0x0FD2)</strong> validates inclusion and continuity proofs synchronously in a single block without centralized intermediaries.
+            <p className="text-ink-soft leading-relaxed">
+              Traditional Web3 city-builders rely on client-side RNG (vulnerable to memory modification) or centralized oracle relays (single point of failure). Bastion anchors all Colossi threat vectors and market scarcity directly to foreign chain transactions (Ethereum Sepolia).
+              Creditcoin's <strong className="text-accent-700">Block Prover Precompile (0x0FD2)</strong> validates inclusion and continuity proofs synchronously in a single block without centralized intermediaries.
             </p>
           </div>
 
           {/* Verification Metrics Grid */}
           <div className="grid grid-cols-3 gap-3 font-mono">
-            <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
-              <span className="text-slate-400 text-[10px] block uppercase">Verifier Address</span>
-              <span className="text-cyan-400 font-bold text-xs truncate block">
+            <div className="border border-rule p-3 rounded-sm">
+              <span className="text-ink-faint text-[10px] block uppercase">Verifier Address</span>
+              <span className="text-accent-700 font-bold text-xs truncate block">
                 {CREDITCOIN_TESTNET.precompileVerifier}
               </span>
             </div>
-            <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
-              <span className="text-slate-400 text-[10px] block uppercase">Verification Latency</span>
-              <span className="text-emerald-400 font-bold text-xs">
+            <div className="border border-rule p-3 rounded-sm">
+              <span className="text-ink-faint text-[10px] block uppercase">Verification Latency</span>
+              <span className="text-ink font-bold text-xs">
                 {cost.latencyBlocks} Block (~15s)
               </span>
             </div>
-            <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
-              <span className="text-slate-400 text-[10px] block uppercase">Formula Gas Cost</span>
-              <span className="text-amber-400 font-bold text-xs">
+            <div className="border border-rule p-3 rounded-sm">
+              <span className="text-ink-faint text-[10px] block uppercase">Formula Gas Cost</span>
+              <span className="text-[#7a5a11] font-bold text-xs">
                 {cost.ctcCost} ({cost.usdEstimate})
               </span>
             </div>
@@ -88,20 +88,20 @@ export const AttestationModal: React.FC<AttestationModalProps> = ({
           {/* Cryptographic Payload Display */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                <Code2 className="w-4 h-4 text-cyan-400" />
+              <span className="text-xs font-semibold text-ink uppercase tracking-wider flex items-center gap-1.5">
+                <Code2 className="w-4 h-4 text-accent-700" />
                 Live Precompile Payload (EVM V1 Proof Struct)
               </span>
-              <span className="text-[11px] font-mono text-slate-400">
+              <span className="text-[11px] font-mono text-ink-faint">
                 Source: {SOURCE_CHAINS.SEPOLIA.name} (chainKey: {SOURCE_CHAINS.SEPOLIA.chainKey})
               </span>
             </div>
 
-            <div className="bg-slate-900 rounded-xl p-4 border border-slate-800 font-mono text-[11px] text-slate-300 overflow-x-auto max-h-56">
+            <div className="border border-rule rounded-sm p-4 font-mono text-[11px] text-ink-soft overflow-x-auto max-h-56 bg-paper-deep/30">
               {latestPayload ? (
                 <pre>{JSON.stringify(latestPayload, null, 2)}</pre>
               ) : (
-                <div className="text-slate-500 italic">
+                <div className="text-ink-faint italic">
                   No incursion triggered yet. Trigger an incursion on the radar to inspect proof.
                 </div>
               )}
@@ -109,11 +109,11 @@ export const AttestationModal: React.FC<AttestationModalProps> = ({
           </div>
 
           {/* Precompile Solidity Call Signature */}
-          <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 flex flex-col gap-2">
-            <span className="text-xs font-bold text-slate-300">
+          <div className="border border-rule rounded-sm p-4 flex flex-col gap-2">
+            <span className="text-xs font-semibold text-ink-soft">
               On-Chain ASC Execution Path:
             </span>
-            <pre className="text-[11px] font-mono text-cyan-300 bg-slate-950 p-3 rounded-lg border border-slate-900 overflow-x-auto">
+            <pre className="text-[11px] font-mono text-accent-700 border border-rule bg-paper-deep/30 p-3 rounded-sm overflow-x-auto">
 {`INativeQueryVerifier(0x0FD2).verifyAndEmit(
     chainKey,            // 1 = Sepolia
     blockHeight,         // Source block number
@@ -126,19 +126,19 @@ export const AttestationModal: React.FC<AttestationModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-slate-800 bg-slate-900/60 flex items-center justify-between">
+        <div className="px-6 py-3 border-t border-rule flex items-center justify-between">
           <a
             href={CREDITCOIN_TESTNET.blockExplorerUrl}
             target="_blank"
             rel="noreferrer"
-            className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+            className="text-xs text-accent-700 hover:text-accent-900 flex items-center gap-1 transition-colors"
           >
             <span>View Blockscout Precompile 0x0FD2</span>
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition-colors cursor-pointer"
+            className="btn-manuscript px-4 py-2 rounded-sm text-xs"
           >
             Close Inspector
           </button>

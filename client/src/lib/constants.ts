@@ -209,7 +209,7 @@ export const MAX_STRUCTURE_LEVEL = 50;
 
 // --- Paid Continue After Breach ---
 // Placeholder — swap in a real treasury/receiving address before this goes live.
-export const TREASURY_ADDRESS = "0x91E2BcD580a489546DC04a69973D276d2F192894";
+export const TREASURY_ADDRESS = "0x36a8a9b451bcc0e3ed75c8b92d0cc2b9b75232a6";
 export const CONTINUE_AFTER_BREACH_FEE_CTC = "0.5";
 
 // --- Paid Heal All (per structure type, triggered from the build palette) ---

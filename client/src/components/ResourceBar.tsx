@@ -166,7 +166,7 @@ export const ResourceBar: React.FC<ResourceBarProps> = ({
         <button
           onClick={onHarvest}
           disabled={isHarvesting}
-          className="!btn-manuscript-dark px-3 py-2 rounded-sm"
+          className="!btn-manuscript-dark px-3 py-2 rounded-sm flex gap-1 border-1 border-grey-200/80"
         >
           <RefreshCw
             className={`w-3.5 h-3.5 ${isHarvesting ? "animate-spin" : ""}`}

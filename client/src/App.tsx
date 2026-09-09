@@ -123,6 +123,9 @@ export function App() {
             onUpgradeAllOfType={game.handleUpgradeAllOfType}
             healingType={game.healingType}
             healError={game.healError}
+            upgradingType={game.upgradingType}
+            upgradeError={game.upgradeError}
+            getUpgradeAllFeeCTC={game.getUpgradeAllFeeCTC}
           />
         </div>
       </main>

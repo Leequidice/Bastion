@@ -91,7 +91,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         {/* Attestcoin Precompile Indicator */}
         <button
           onClick={onOpenProofModal}
-          className="!btn-manuscript-dark px-3 py-1.5 rounded-sm"
+          className="!btn-manuscript-dark px-3 py-1.5 rounded-sm flex gap-1"
           title="Inspect cryptographic proof payload and precompile interface"
         >
           <Cpu className="w-3.5 h-3.5 text-accent-300" />
@@ -104,7 +104,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         {/* Leaderboard */}
         <button
           onClick={onOpenLeaderboard}
-          className="!btn-manuscript-dark px-3 py-1.5 rounded-sm"
+          className="!btn-manuscript-dark px-3 py-1.5 rounded-sm flex gap-1"
           title="View the Wall Watch leaderboard"
         >
           <Trophy className="w-3.5 h-3.5 text-accent-300" />

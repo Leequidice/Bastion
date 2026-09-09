@@ -215,6 +215,22 @@ export const CONTINUE_AFTER_BREACH_FEE_CTC = "0.5";
 // --- Paid Heal All (per structure type, triggered from the build palette) ---
 export const HEAL_ALL_FEE_CTC = "0.2";
 
+// --- Paid Upgrade All (per structure type, triggered from the build palette) ---
+// Base network fee for the transaction itself — this is charged regardless of
+// whether the player can otherwise afford the in-game Stone/Energy cost.
+export const UPGRADE_ALL_BASE_FEE_CTC = "0.2";
+// Test-token → resource conversion, used only to cover a *shortfall*: if the
+// player doesn't have enough Stone/Energy on hand to pay the normal in-game
+// upgrade cost, the missing amount is priced in tCTC and folded into the fee
+// ("pay to skip the grind") instead of blocking the upgrade outright.
+// A single upgrade normally costs 40 Stone + 20 Energy; a player with zero of
+// either resource pays roughly 40/100 + 20/50 = 0.8 tCTC on top of the 0.2
+// base fee per upgraded structure — meaningfully more than playing it out
+// organically, so the shortcut has a real cost without being unreasonable on
+// a testnet where tokens are free from the faucet.
+export const STONE_PER_CTC = 100; // 1 tCTC covers ~100 Stone of shortfall
+export const ENERGY_PER_CTC = 50; // 1 tCTC covers ~50 Energy of shortfall
+
 // --- Faucet Drip (new-signup funding + manual top-up) ---
 // Authoritative drip amount lives server-side (DRIP_AMOUNT_CTC in server/.env); this
 // is only used for UI copy ("new accounts receive X tCTC").

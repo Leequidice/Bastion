@@ -8,6 +8,9 @@ import {
   TREASURY_ADDRESS,
   CONTINUE_AFTER_BREACH_FEE_CTC,
   HEAL_ALL_FEE_CTC,
+  UPGRADE_ALL_BASE_FEE_CTC,
+  STONE_PER_CTC,
+  ENERGY_PER_CTC,
   MIN_TX_GAS_BUFFER_CTC,
 } from "../lib/constants";
 import { PlacedStructure } from "../components/CityCanvas";
@@ -198,6 +201,10 @@ export function useBastionGame() {
   const [healingType, setHealingType] = useState<string | null>(null);
   const [healError, setHealError] = useState<string | null>(null);
 
+  // Per-structure-type "Upgrade All" flow, triggered from the build palette (on-chain fee)
+  const [upgradingType, setUpgradingType] = useState<string | null>(null);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
+
   // Faucet drip: true for the window between "no saved state found" (brand new
   // account) and the one-time drip request resolving.
   const [isNewUser, setIsNewUser] = useState(false);
@@ -231,6 +238,7 @@ export function useBastionGame() {
     setIsStateLoaded(false);
     setContinueError(null);
     setHealError(null);
+    setUpgradeError(null);
     setIsNewUser(false);
   }, []);
 
@@ -421,38 +429,92 @@ export function useBastionGame() {
     [structures, wallets, balance]
   );
 
-  // Upgrade every eligible structure of one type (Intact, below the level cap) at once
-  const handleUpgradeAllOfType = useCallback(
+  // Compute the tCTC fee to Upgrade All of a given structure type: a flat base
+  // fee plus, if the player is short on Stone/Energy, that shortfall priced in
+  // tCTC via STONE_PER_CTC/ENERGY_PER_CTC (see constants.ts for the rationale).
+  const getUpgradeAllFeeCTC = useCallback(
     (type: string) => {
       const eligible = structures.filter(
         (s) => s.type === type && s.condition === "Intact" && s.level < MAX_STRUCTURE_LEVEL
       );
-      if (eligible.length === 0) return;
+      if (eligible.length === 0) return 0;
       const stoneCost = eligible.length * 40;
       const energyCost = eligible.length * 20;
-      if (resources.stone < stoneCost || resources.energy < energyCost) return;
-
-      setResources((prev) => ({
-        ...prev,
-        stone: prev.stone - stoneCost,
-        energy: prev.energy - energyCost,
-      }));
-      setStructures((prev) =>
-        prev.map((s) => {
-          if (s.type !== type || s.condition !== "Intact" || s.level >= MAX_STRUCTURE_LEVEL) return s;
-          const newMax = Math.floor(s.maxDurability * 1.3);
-          return { ...s, level: s.level + 1, maxDurability: newMax, durability: newMax };
-        })
-      );
-      setInspectedStructure((prev) => {
-        if (!prev || prev.type !== type || prev.condition !== "Intact" || prev.level >= MAX_STRUCTURE_LEVEL) {
-          return prev;
-        }
-        const newMax = Math.floor(prev.maxDurability * 1.3);
-        return { ...prev, level: prev.level + 1, maxDurability: newMax, durability: newMax };
-      });
+      const stoneShort = Math.max(0, stoneCost - resources.stone);
+      const energyShort = Math.max(0, energyCost - resources.energy);
+      return Number(UPGRADE_ALL_BASE_FEE_CTC) + stoneShort / STONE_PER_CTC + energyShort / ENERGY_PER_CTC;
     },
     [structures, resources]
+  );
+
+  // Upgrade every eligible structure of one type (Intact, below the level cap) at
+  // once — gated by an on-chain fee. Any Stone/Energy shortfall is folded into
+  // that fee rather than blocking the upgrade outright.
+  const handleUpgradeAllOfType = useCallback(
+    async (type: string) => {
+      const eligible = structures.filter(
+        (s) => s.type === type && s.condition === "Intact" && s.level < MAX_STRUCTURE_LEVEL
+      );
+      if (eligible.length === 0) return;
+
+      const wallet = wallets[0];
+      if (!wallet) {
+        setUpgradeError("Connect a wallet first.");
+        return;
+      }
+
+      const stoneCost = eligible.length * 40;
+      const energyCost = eligible.length * 20;
+      const fee = getUpgradeAllFeeCTC(type);
+      const required = fee + Number(MIN_TX_GAS_BUFFER_CTC);
+
+      if (Number(balance) < required) {
+        setUpgradeError(
+          `You need at least ${required.toFixed(2)} tCTC to cover this (have ${balance}). Visit the faucet to top up.`
+        );
+        return;
+      }
+
+      setUpgradingType(type);
+      setUpgradeError(null);
+
+      try {
+        const injected = await wallet.getEthereumProvider();
+        const provider = new ethers.BrowserProvider(injected);
+        const signer = await provider.getSigner();
+        const tx = await signer.sendTransaction({
+          to: TREASURY_ADDRESS,
+          value: ethers.parseEther(fee.toFixed(6)),
+        });
+        await tx.wait();
+
+        setResources((prev) => ({
+          ...prev,
+          stone: Math.max(0, prev.stone - stoneCost),
+          energy: Math.max(0, prev.energy - energyCost),
+        }));
+        setStructures((prev) =>
+          prev.map((s) => {
+            if (s.type !== type || s.condition !== "Intact" || s.level >= MAX_STRUCTURE_LEVEL) return s;
+            const newMax = Math.floor(s.maxDurability * 1.3);
+            return { ...s, level: s.level + 1, maxDurability: newMax, durability: newMax };
+          })
+        );
+        setInspectedStructure((prev) => {
+          if (!prev || prev.type !== type || prev.condition !== "Intact" || prev.level >= MAX_STRUCTURE_LEVEL) {
+            return prev;
+          }
+          const newMax = Math.floor(prev.maxDurability * 1.3);
+          return { ...prev, level: prev.level + 1, maxDurability: newMax, durability: newMax };
+        });
+      } catch (err) {
+        console.error("Upgrade All payment failed:", err);
+        setUpgradeError("Transaction failed or was rejected.");
+      } finally {
+        setUpgradingType(null);
+      }
+    },
+    [structures, wallets, balance, getUpgradeAllFeeCTC]
   );
 
   // Remove a structure from the grid, freeing its tile (no refund). The Citadel Core cannot be removed.
@@ -808,6 +870,9 @@ export function useBastionGame() {
     continueError,
     healingType,
     healError,
+    upgradingType,
+    upgradeError,
+    getUpgradeAllFeeCTC,
     account,
     balance,
     networkId,

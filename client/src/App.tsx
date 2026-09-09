@@ -7,13 +7,14 @@ import { IncursionRadar } from "./components/IncursionRadar";
 import { BuildMenu } from "./components/BuildMenu";
 import { StructureInspector } from "./components/StructureInspector";
 import { AttestationModal } from "./components/AttestationModal";
-import { Shield, Sparkles, ExternalLink, HelpCircle } from "lucide-react";
+import { Leaderboard } from "./components/Leaderboard";
+import { ExternalLink, HelpCircle } from "lucide-react";
 
 export function App() {
   const game = useBastionGame();
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-white">
+    <div className="min-h-screen bg-dark text-dark-text flex flex-col font-body selection:bg-accent-500/40 selection:text-dark-text">
       {/* Top Navigation & Status */}
       <DashboardHeader
         account={game.account}
@@ -22,8 +23,11 @@ export function App() {
         onConnectWallet={game.handleConnectWallet}
         onSwitchNetwork={game.handleSwitchNetwork}
         onOpenProofModal={() => game.setIsProofModalOpen(true)}
+        onOpenLeaderboard={() => game.setIsLeaderboardOpen(true)}
         isSandboxMode={game.isSandboxMode}
         onToggleSandbox={() => game.setIsSandboxMode(!game.isSandboxMode)}
+        onLogout={game.handleLogout}
+        onConnectAnotherAccount={game.handleConnectAnotherAccount}
       />
 
       {/* Resource & Market Multiplier Bar (Phase 2) */}
@@ -51,29 +55,29 @@ export function App() {
           />
 
           {/* Tactical Instructions & Mechanics Guide */}
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-4 text-xs text-slate-300 flex flex-col gap-2">
-            <div className="flex items-center gap-2 font-bold text-cyan-300">
-              <HelpCircle className="w-4 h-4 text-cyan-400" />
-              <span>Attestcoin Core Game Loop:</span>
+          <div className="panel-parchment rounded-md p-4 text-xs flex flex-col gap-2 relative">
+            <div className="flex items-center gap-2 font-semibold text-accent-700">
+              <HelpCircle className="w-4 h-4 text-accent-500" />
+              <span className="kicker text-[11px]">Bastion Chronicle — Core Game Loop</span>
             </div>
-            <ol className="list-decimal list-inside space-y-1 text-slate-400">
+            <ol className="list-decimal list-inside space-y-1.5 text-ink-soft leading-relaxed">
               <li>
-                <strong>Fortify the Redoubt:</strong> Choose Ramparts, Ballistas, and Sunstone Batteries from the palette and place them on empty sectors before the Titan arrives.
+                <strong className="text-ink">Fortify the Redoubt:</strong> Choose Ramparts, Ballistas, and Sunstone Batteries from the palette and place them on empty sectors before the Titan arrives.
               </li>
               <li>
-                <strong>Sound the Horn:</strong> Starting a wave polls an Attestcoin proof from Ethereum Sepolia for flavor while a Titan spawns and begins marching down the lane toward the Wall in real time.
+                <strong className="text-ink">Sound the Horn:</strong> Starting a wave polls an Attestcoin proof from Ethereum Sepolia for flavor while a Titan spawns and begins marching down the lane toward the Wall in real time.
               </li>
               <li>
-                <strong>Automatic Defense:</strong> Every placed defense fires on its own cooldown as the Titan approaches — no manual firing needed. Kill it before it reaches the Wall.
+                <strong className="text-ink">Automatic Defense:</strong> Every placed defense fires on its own cooldown as the Titan approaches — no manual firing needed. Kill it before it reaches the Wall.
               </li>
               <li>
-                <strong>Escalating Levels:</strong> Each Titan you repel raises the level — HP grows 70% per wave, the march grows longer, and the Titan creeps slightly faster. There is no level cap; if the Titan ever reaches the Wall, the Wall falls and the run ends.
+                <strong className="text-ink">Escalating Levels:</strong> Each Titan you repel raises the level — HP grows 70% per wave, the march grows longer, and the Titan creeps slightly faster. There is no level cap; if the Titan ever reaches the Wall, the Wall falls and the run ends.
               </li>
               <li>
-                <strong>Attested Resource Economy (Phase 2):</strong> Resource costs dynamically fluctuate based on cross-chain seismic data. Harvest and spend bounty from repelled waves to build and upgrade more defenses.
+                <strong className="text-ink">Attested Resource Economy (Phase 2):</strong> Resource costs dynamically fluctuate based on cross-chain seismic data. Harvest and spend bounty from repelled waves to build and upgrade more defenses.
               </li>
               <li>
-                <strong>Portable Structure NFTs (Phase 3):</strong> Click on any wall or tower to inspect its ERC-721 token ID and on-chain Attestation Hash.
+                <strong className="text-ink">Portable Structure NFTs (Phase 3):</strong> Click on any wall or tower to inspect its ERC-721 token ID and on-chain Attestation Hash.
               </li>
             </ol>
           </div>
@@ -92,6 +96,9 @@ export function App() {
             isStarting={game.isStarting}
             onStartWave={game.handleStartWave}
             onRestart={game.handleRestart}
+            onContinue={game.handleContinueFromBreach}
+            isContinuing={game.isContinuing}
+            continueError={game.continueError}
           />
 
           {/* Structure Inspector (Phase 3 NFT state) */}
@@ -101,6 +108,7 @@ export function App() {
               onClose={() => game.setInspectedStructure(null)}
               onRepair={game.handleRepairStructure}
               onUpgrade={game.handleUpgradeStructure}
+              onRemove={game.handleRemoveStructure}
               resources={game.resources}
             />
           )}
@@ -110,6 +118,14 @@ export function App() {
             selectedBuildingId={game.selectedBuildingId}
             onSelectBuilding={game.setSelectedBuildingId}
             resources={game.resources}
+            structures={game.structures}
+            onHealAllOfType={game.handleHealAllOfType}
+            onUpgradeAllOfType={game.handleUpgradeAllOfType}
+            healingType={game.healingType}
+            healError={game.healError}
+            upgradingType={game.upgradingType}
+            upgradeError={game.upgradeError}
+            getUpgradeAllFeeCTC={game.getUpgradeAllFeeCTC}
           />
         </div>
       </main>
@@ -121,15 +137,21 @@ export function App() {
         latestPayload={game.latestPayload}
       />
 
+      {/* Wall Watch Leaderboard */}
+      <Leaderboard
+        isOpen={game.isLeaderboardOpen}
+        onClose={() => game.setIsLeaderboardOpen(false)}
+      />
+
       {/* Footer */}
-      <footer className="w-full border-t border-slate-900 bg-slate-950 py-4 px-6 text-center text-xs text-slate-500 flex flex-wrap items-center justify-between gap-2">
-        <span>Bastion © 2026 • Built for BUIDL CTC 2026 Fall Hackathon (Gaming Track)</span>
+      <footer className="w-full border-t border-dark-rule bg-dark py-4 px-6 text-center text-xs text-dark-muted flex flex-wrap items-center justify-between gap-2">
+        <span className="kicker text-[10px]">Bastion © 2026 · Built for BUIDL CTC 2026 Fall Hackathon</span>
         <div className="flex items-center gap-4">
           <a
             href="https://docs.attestcoin.org"
             target="_blank"
             rel="noreferrer"
-            className="hover:text-cyan-400 transition-colors flex items-center gap-1"
+            className="hover:text-accent-300 transition-colors flex items-center gap-1"
           >
             <span>Attestcoin Docs</span>
             <ExternalLink className="w-3 h-3" />
@@ -138,7 +160,7 @@ export function App() {
             href="https://creditcoin.org"
             target="_blank"
             rel="noreferrer"
-            className="hover:text-cyan-400 transition-colors flex items-center gap-1"
+            className="hover:text-accent-300 transition-colors flex items-center gap-1"
           >
             <span>Creditcoin Network</span>
             <ExternalLink className="w-3 h-3" />

@@ -1,5 +1,13 @@
 import React from "react";
-import { Hammer, Zap, Wheat, Shield, Sparkles, TrendingUp, RefreshCw } from "lucide-react";
+import {
+  Hammer,
+  Zap,
+  Wheat,
+  Shield,
+  Sparkles,
+  TrendingUp,
+  RefreshCw,
+} from "lucide-react";
 
 export interface Resources {
   stone: number;
@@ -10,9 +18,9 @@ export interface Resources {
 
 export interface MarketConditionState {
   description: string;
-  stoneMultiplier: number;  // 10000 = 1.0x
+  stoneMultiplier: number; // 10000 = 1.0x
   energyMultiplier: number; // 10000 = 1.0x
-  foodScarcity: number;     // 10000 = 1.0x
+  foodScarcity: number; // 10000 = 1.0x
 }
 
 interface ResourceBarProps {
@@ -30,28 +38,36 @@ export const ResourceBar: React.FC<ResourceBarProps> = ({
   onHarvest,
   isHarvesting,
 }) => {
-  const stoneMultFormatted = (marketCondition.stoneMultiplier / 10000).toFixed(2);
-  const energyMultFormatted = (marketCondition.energyMultiplier / 10000).toFixed(2);
+  const stoneMultFormatted = (marketCondition.stoneMultiplier / 10000).toFixed(
+    2,
+  );
+  const energyMultFormatted = (
+    marketCondition.energyMultiplier / 10000
+  ).toFixed(2);
   const foodMultFormatted = (marketCondition.foodScarcity / 10000).toFixed(2);
 
   return (
-    <div className="w-full bg-slate-900/90 border-b border-slate-800 px-6 py-2.5 flex flex-wrap items-center justify-between gap-4 text-xs">
+    <div className="w-full panel-dark border-t-0 px-6 py-2.5 flex flex-wrap items-center justify-between gap-4 text-xs">
       {/* Resource Counters */}
       <div className="flex items-center gap-6">
         {/* Stone */}
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded bg-slate-800 flex items-center justify-center text-slate-300">
-            <Hammer className="w-4 h-4 text-slate-300" />
+          <div className="w-7 h-7 rounded-sm border border-dark-rule flex items-center justify-center text-dark-muted">
+            <Hammer className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[10px] uppercase text-slate-400 font-semibold tracking-wider">
+            <div className="kicker text-[9px] text-dark-muted font-semibold">
               Raw Stone
             </div>
-            <div className="flex items-center gap-1.5 font-mono font-bold text-slate-100 text-sm">
+            <div className="flex items-center gap-1.5 font-mono font-bold text-dark-text text-sm">
               <span>{Math.floor(resources.stone)}</span>
-              <span className={`text-[10px] px-1 rounded ${
-                marketCondition.stoneMultiplier > 10000 ? "bg-red-950 text-red-400" : "bg-emerald-950 text-emerald-400"
-              }`}>
+              <span
+                className={`text-[10px] px-1 rounded-sm border ${
+                  marketCondition.stoneMultiplier > 10000
+                    ? "border-red-800/60 text-red-400"
+                    : "border-accent-500/50 text-accent-300"
+                }`}
+              >
                 {stoneMultFormatted}x
               </span>
             </div>
@@ -60,18 +76,22 @@ export const ResourceBar: React.FC<ResourceBarProps> = ({
 
         {/* Energy */}
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded bg-cyan-950 flex items-center justify-center text-cyan-400">
-            <Zap className="w-4 h-4 text-cyan-400" />
+          <div className="w-7 h-7 rounded-sm border border-dark-rule flex items-center justify-center text-accent-300">
+            <Zap className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[10px] uppercase text-slate-400 font-semibold tracking-wider">
+            <div className="kicker text-[9px] text-dark-muted font-semibold">
               Sunstone Energy
             </div>
-            <div className="flex items-center gap-1.5 font-mono font-bold text-cyan-200 text-sm">
+            <div className="flex items-center gap-1.5 font-mono font-bold text-dark-text text-sm">
               <span>{Math.floor(resources.energy)}</span>
-              <span className={`text-[10px] px-1 rounded ${
-                marketCondition.energyMultiplier > 10000 ? "bg-cyan-950 text-cyan-400" : "bg-slate-800 text-slate-400"
-              }`}>
+              <span
+                className={`text-[10px] px-1 rounded-sm border ${
+                  marketCondition.energyMultiplier > 10000
+                    ? "border-accent-500/50 text-accent-300"
+                    : "border-dark-rule text-dark-muted"
+                }`}
+              >
                 {energyMultFormatted}x
               </span>
             </div>
@@ -80,18 +100,22 @@ export const ResourceBar: React.FC<ResourceBarProps> = ({
 
         {/* Food */}
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded bg-amber-950 flex items-center justify-center text-amber-400">
-            <Wheat className="w-4 h-4 text-amber-400" />
+          <div className="w-7 h-7 rounded-sm border border-dark-rule flex items-center justify-center text-dark-muted">
+            <Wheat className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[10px] uppercase text-slate-400 font-semibold tracking-wider">
+            <div className="kicker text-[9px] text-dark-muted font-semibold">
               Garrison Grain
             </div>
-            <div className="flex items-center gap-1.5 font-mono font-bold text-amber-200 text-sm">
+            <div className="flex items-center gap-1.5 font-mono font-bold text-dark-text text-sm">
               <span>{Math.floor(resources.food)}</span>
-              <span className={`text-[10px] px-1 rounded ${
-                marketCondition.foodScarcity > 10000 ? "bg-red-950 text-red-400" : "bg-emerald-950 text-emerald-400"
-              }`}>
+              <span
+                className={`text-[10px] px-1 rounded-sm border ${
+                  marketCondition.foodScarcity > 10000
+                    ? "border-red-800/60 text-red-400"
+                    : "border-accent-500/50 text-accent-300"
+                }`}
+              >
                 {foodMultFormatted}x
               </span>
             </div>
@@ -100,14 +124,14 @@ export const ResourceBar: React.FC<ResourceBarProps> = ({
 
         {/* Aegis Alloy */}
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded bg-purple-950 flex items-center justify-center text-purple-400">
-            <Sparkles className="w-4 h-4 text-purple-400" />
+          <div className="w-7 h-7 rounded-sm border border-dark-rule flex items-center justify-center text-dark-muted">
+            <Sparkles className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[10px] uppercase text-slate-400 font-semibold tracking-wider">
+            <div className="kicker text-[9px] text-dark-muted font-semibold">
               Aegis Alloy
             </div>
-            <div className="font-mono font-bold text-purple-200 text-sm">
+            <div className="font-mono font-bold text-dark-text text-sm">
               {Math.floor(resources.aegisAlloy)}
             </div>
           </div>
@@ -115,23 +139,25 @@ export const ResourceBar: React.FC<ResourceBarProps> = ({
       </div>
 
       {/* Cross-chain Attested Market Multiplier Status */}
-      <div className="flex items-center gap-3 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg max-w-md">
-        <TrendingUp className="w-4 h-4 text-cyan-400 shrink-0" />
+      <div className="flex items-center gap-3 border border-dark-rule px-3 py-1.5 rounded-sm max-w-md">
+        <TrendingUp className="w-4 h-4 text-accent-300 shrink-0" />
         <div className="truncate">
-          <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider block">
-            Attested Market Condition (Phase 2):
+          <span className="kicker text-[9px] text-accent-300 font-bold block">
+            Attested Market Condition
           </span>
-          <span className="text-xs text-slate-300 font-medium truncate block">
+          <span className="text-xs text-dark-muted font-medium truncate block italic">
             {marketCondition.description}
           </span>
         </div>
       </div>
 
-      {/* Defense Output & Harvest Action */}
+      {/* Defense Output & Actions */}
       <div className="flex items-center gap-3">
         <div className="text-right">
-          <div className="text-[10px] uppercase text-slate-400 font-semibold">Total Defense Rating</div>
-          <div className="font-mono font-bold text-emerald-400 text-sm flex items-center justify-end gap-1">
+          <div className="kicker text-[9px] text-dark-muted font-semibold">
+            Total Defense Rating
+          </div>
+          <div className="font-mono font-bold text-accent-300 text-sm flex items-center justify-end gap-1">
             <Shield className="w-3.5 h-3.5" />
             <span>{totalDefensePower} DMG</span>
           </div>
@@ -140,9 +166,11 @@ export const ResourceBar: React.FC<ResourceBarProps> = ({
         <button
           onClick={onHarvest}
           disabled={isHarvesting}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold shadow-md shadow-emerald-700/20 transition-all cursor-pointer"
+          className="!btn-manuscript-dark px-3 py-2 rounded-sm flex gap-1 border-1 border-grey-200/80"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isHarvesting ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`w-3.5 h-3.5 ${isHarvesting ? "animate-spin" : ""}`}
+          />
           <span>Harvest Vault</span>
         </button>
       </div>

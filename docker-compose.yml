@@ -1,0 +1,20 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - bastion-redis-data:/data
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    ports:
+      - "5540:5540"
+    volumes:
+      - bastion-redisinsight-data:/data
+    depends_on:
+      - redis
+
+volumes:
+  bastion-redis-data:
+  bastion-redisinsight-data:

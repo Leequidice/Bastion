@@ -1,5 +1,12 @@
 import React, { useRef, useEffect, useState } from "react";
-import { BUILDINGS, COLOSSI_ARCHETYPES, GRID_SIZE, TILE_SIZE, PADDING, LANE_GRID_COLUMN } from "../lib/constants";
+import {
+  BUILDINGS,
+  COLOSSI_ARCHETYPES,
+  GRID_SIZE,
+  TILE_SIZE,
+  PADDING,
+  LANE_GRID_COLUMN,
+} from "../lib/constants";
 import { BattleState, QuirkEvents } from "../lib/battleEngine";
 
 export interface PlacedStructure {
@@ -93,7 +100,10 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
   lastQuirkEvents,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [hoveredTile, setHoveredTile] = useState<{ x: number; y: number } | null>(null);
+  const [hoveredTile, setHoveredTile] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const projectilesRef = useRef<Projectile[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const damageNumbersRef = useRef<DamageNumber[]>([]);
@@ -108,9 +118,12 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
     }
 
     if (lastQuirkEvents.beastAttackTargetId) {
-      const target = structures.find((s) => s.id === lastQuirkEvents.beastAttackTargetId);
+      const target = structures.find(
+        (s) => s.id === lastQuirkEvents.beastAttackTargetId,
+      );
       if (target) {
-        const progress = 1 - battleState.distanceRemaining / battleState.totalDistance;
+        const progress =
+          1 - battleState.distanceRemaining / battleState.totalDistance;
         const startX = LANE_X;
         const startY = LANE_SPAWN_Y + (LANE_WALL_Y - LANE_SPAWN_Y) * progress;
         const endX = PADDING + target.gridX * TILE_SIZE + TILE_SIZE / 2;
@@ -135,7 +148,8 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
   useEffect(() => {
     if (lastFiredStructureIds.length === 0 || !battleState) return;
 
-    const progress = 1 - battleState.distanceRemaining / battleState.totalDistance;
+    const progress =
+      1 - battleState.distanceRemaining / battleState.totalDistance;
     const targetX = LANE_X;
     const targetY = LANE_SPAWN_Y + (LANE_WALL_Y - LANE_SPAWN_Y) * progress;
 
@@ -177,15 +191,20 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
     const render = () => {
       ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-      // 1. Draw Frontier Background
-      ctx.fillStyle = "#090a12";
+      // 1. Draw Frontier Background — the map is drawn in ink on aged parchment
+      ctx.fillStyle = "#d8cbae";
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-      // Grid area backdrop (Granite foundation)
-      ctx.fillStyle = "#0f172a";
-      ctx.strokeStyle = "#1e293b";
+      // Grid area backdrop (parchment foundation)
+      ctx.fillStyle = "#ece5d5";
+      ctx.strokeStyle = "rgba(44, 36, 24, 0.18)";
       ctx.lineWidth = 1;
-      ctx.fillRect(PADDING, PADDING, GRID_SIZE * TILE_SIZE, GRID_SIZE * TILE_SIZE);
+      ctx.fillRect(
+        PADDING,
+        PADDING,
+        GRID_SIZE * TILE_SIZE,
+        GRID_SIZE * TILE_SIZE,
+      );
 
       // Draw Grid Lines
       for (let i = 0; i <= GRID_SIZE; i++) {
@@ -201,17 +220,27 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
         ctx.stroke();
       }
 
-      // Draw Aegis Perimeter line (Outer Border)
-      ctx.strokeStyle = "#38bdf8";
+      // Draw Aegis Perimeter line (Outer Border) — gold ink, never a filled shape
+      ctx.strokeStyle = "#a97f34";
       ctx.lineWidth = 2;
       ctx.setLineDash([4, 4]);
-      ctx.strokeRect(PADDING - 4, PADDING - 4, GRID_SIZE * TILE_SIZE + 8, GRID_SIZE * TILE_SIZE + 8);
+      ctx.strokeRect(
+        PADDING - 4,
+        PADDING - 4,
+        GRID_SIZE * TILE_SIZE + 8,
+        GRID_SIZE * TILE_SIZE + 8,
+      );
       ctx.setLineDash([]);
 
       // Armored sprint flash — briefly highlights the lane column, fading out
       if (sprintFlashRef.current > 0) {
-        ctx.fillStyle = `rgba(239, 68, 68, ${sprintFlashRef.current * 0.4})`;
-        ctx.fillRect(PADDING + LANE_GRID_COLUMN * TILE_SIZE, PADDING, TILE_SIZE, GRID_SIZE * TILE_SIZE);
+        ctx.fillStyle = `rgba(122, 35, 24, ${sprintFlashRef.current * 0.4})`;
+        ctx.fillRect(
+          PADDING + LANE_GRID_COLUMN * TILE_SIZE,
+          PADDING,
+          TILE_SIZE,
+          GRID_SIZE * TILE_SIZE,
+        );
         sprintFlashRef.current = Math.max(0, sprintFlashRef.current - 0.05);
       }
 
@@ -227,7 +256,7 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
       });
 
       if (citadelCoord) {
-        ctx.strokeStyle = "rgba(6, 182, 212, 0.35)";
+        ctx.strokeStyle = "rgba(169, 127, 52, 0.4)";
         ctx.lineWidth = 1.5;
         pylonCoords.forEach((p) => {
           ctx.beginPath();
@@ -256,7 +285,12 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
           ctx.arc(tx + TILE_SIZE / 2, ty + TILE_SIZE / 2, 6, 0, Math.PI * 2);
           ctx.fill();
         } else if (s.type === "RAMPART") {
-          ctx.fillStyle = s.condition === "Destroyed" ? "#450a0a" : s.condition === "Damaged" ? "#713f12" : "#334155";
+          ctx.fillStyle =
+            s.condition === "Destroyed"
+              ? "#450a0a"
+              : s.condition === "Damaged"
+                ? "#713f12"
+                : "#334155";
           ctx.fillRect(tx + 3, ty + 3, TILE_SIZE - 6, TILE_SIZE - 6);
           // Crenelations
           ctx.fillStyle = "#64748b";
@@ -315,9 +349,10 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
 
         // Mini Durability Bar
         const hpRatio = s.durability / s.maxDurability;
-        ctx.fillStyle = "#1e293b";
+        ctx.fillStyle = "#5a4c36";
         ctx.fillRect(tx + 4, ty + TILE_SIZE - 5, TILE_SIZE - 8, 3);
-        ctx.fillStyle = hpRatio > 0.5 ? "#22c55e" : hpRatio > 0.2 ? "#eab308" : "#ef4444";
+        ctx.fillStyle =
+          hpRatio > 0.5 ? "#22c55e" : hpRatio > 0.2 ? "#eab308" : "#ef4444";
         ctx.fillRect(tx + 4, ty + TILE_SIZE - 5, (TILE_SIZE - 8) * hpRatio, 3);
       });
 
@@ -325,9 +360,11 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
       if (hoveredTile) {
         const hx = PADDING + hoveredTile.x * TILE_SIZE;
         const hy = PADDING + hoveredTile.y * TILE_SIZE;
-        ctx.fillStyle = selectedBuildingId ? "rgba(56, 189, 248, 0.25)" : "rgba(255, 255, 255, 0.1)";
+        ctx.fillStyle = selectedBuildingId
+          ? "rgba(169, 127, 52, 0.22)"
+          : "rgba(44, 36, 24, 0.08)";
         ctx.fillRect(hx, hy, TILE_SIZE, TILE_SIZE);
-        ctx.strokeStyle = selectedBuildingId ? "#38bdf8" : "#94a3b8";
+        ctx.strokeStyle = selectedBuildingId ? "#a97f34" : "#8a7a5f";
         ctx.lineWidth = 2;
         ctx.strokeRect(hx + 1, hy + 1, TILE_SIZE - 2, TILE_SIZE - 2);
       }
@@ -335,24 +372,31 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
       // 5a. Draw the Wall — humanity's last line, spanning the base of the lane
       const wallY = LANE_WALL_Y;
       const breached = wallStatus === "breached";
-      ctx.fillStyle = breached ? "#450a0a" : "#334155";
-      ctx.fillRect(PADDING - 10, wallY - 8, GRID_SIZE * TILE_SIZE + 20, 16);
+      ctx.fillStyle = breached ? "#3a1610" : "#5a4c36";
+      ctx.fillRect(PADDING - 10, wallY - 8, GRID_SIZE * TILE_SIZE + 20, 20);
       // Crenelations along the wall
-      ctx.fillStyle = breached ? "#7f1d1d" : "#64748b";
+      ctx.fillStyle = breached ? "#7a2318" : "#8a7a5f";
       for (let i = 0; i < GRID_SIZE + 1; i++) {
         ctx.fillRect(PADDING - 8 + i * TILE_SIZE, wallY - 12, 10, 8);
       }
-      ctx.fillStyle = breached ? "#ef4444" : "#e2e8f0";
-      ctx.font = "bold 10px system-ui";
+      ctx.fillStyle = breached ? "#c65c4e" : "#000";
+      ctx.font = "bold 10px 'Lora', Georgia, serif";
       ctx.textAlign = "center";
-      ctx.fillText(breached ? "THE WALL HAS FALLEN" : "THE WALL", LANE_X, wallY + 22);
+      ctx.fillText(
+        breached ? "THE WALL HAS FALLEN" : "THE CITY WALLS",
+        LANE_X,
+        wallY + 22,
+      );
 
       // 5b. Draw the Marching Titan
       if (battleState) {
-        const progress = 1 - battleState.distanceRemaining / battleState.totalDistance;
+        const progress =
+          1 - battleState.distanceRemaining / battleState.totalDistance;
         const cx = LANE_X;
         const cy = LANE_SPAWN_Y + (LANE_WALL_Y - LANE_SPAWN_Y) * progress;
-        const archetypeInfo = COLOSSI_ARCHETYPES[battleState.titan.archetype] || COLOSSI_ARCHETYPES[0];
+        const archetypeInfo =
+          COLOSSI_ARCHETYPES[battleState.titan.archetype] ||
+          COLOSSI_ARCHETYPES[0];
 
         // Colossus: pulsing radioactive ring, intensifying as it nears the Wall
         if (battleState.titan.class === "colossus") {
@@ -393,7 +437,7 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
           ctx.fill();
 
           const minionHpPercent = Math.max(0, minion.hp / minion.maxHp);
-          ctx.fillStyle = "#1e293b";
+          ctx.fillStyle = "#5a4c36";
           ctx.fillRect(mx - 12, my + 12, 24, 3);
           ctx.fillStyle = "#22c55e";
           ctx.fillRect(mx - 12, my + 12, 24 * minionHpPercent, 3);
@@ -401,23 +445,32 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
 
         // Name, Level & Class Badge
         ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 11px system-ui";
+        ctx.font = "bold 11px 'Lora', Georgia, serif";
         ctx.textAlign = "center";
         ctx.fillText(
           `${battleState.titan.name} (Lv.${battleState.titan.level}) [${battleState.titan.class.toUpperCase()}]`,
           cx,
-          cy - 30
+          cy - 30,
         );
 
         // Titan Health Bar
         const barWidth = 60;
         const barHeight = 6;
-        const hpPercent = Math.max(0, battleState.titan.hp / battleState.titan.maxHp);
-        ctx.fillStyle = "#1e293b";
+        const hpPercent = Math.max(
+          0,
+          battleState.titan.hp / battleState.titan.maxHp,
+        );
+        ctx.fillStyle = "#5a4c36";
         ctx.fillRect(cx - barWidth / 2, cy - 24, barWidth, barHeight);
-        ctx.fillStyle = hpPercent > 0.5 ? "#22c55e" : hpPercent > 0.2 ? "#eab308" : "#ef4444";
-        ctx.fillRect(cx - barWidth / 2, cy - 24, barWidth * hpPercent, barHeight);
-        ctx.strokeStyle = "#475569";
+        ctx.fillStyle =
+          hpPercent > 0.5 ? "#22c55e" : hpPercent > 0.2 ? "#eab308" : "#ef4444";
+        ctx.fillRect(
+          cx - barWidth / 2,
+          cy - 24,
+          barWidth * hpPercent,
+          barHeight,
+        );
+        ctx.strokeStyle = "#8a7a5f";
         ctx.lineWidth = 1;
         ctx.strokeRect(cx - barWidth / 2, cy - 24, barWidth, barHeight);
       }
@@ -427,8 +480,10 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
       projectilesRef.current.forEach((proj) => {
         proj.progress += 0.08;
         if (proj.progress < 1) {
-          proj.currentX = proj.startX + (proj.targetX - proj.startX) * proj.progress;
-          proj.currentY = proj.startY + (proj.targetY - proj.startY) * proj.progress;
+          proj.currentX =
+            proj.startX + (proj.targetX - proj.startX) * proj.progress;
+          proj.currentY =
+            proj.startY + (proj.targetY - proj.startY) * proj.progress;
 
           ctx.strokeStyle = proj.color;
           ctx.lineWidth = proj.type === "beam" ? 3 : 2;
@@ -492,7 +547,7 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
         dmg.alpha -= 0.025;
         if (dmg.alpha > 0) {
           ctx.fillStyle = `rgba(250, 204, 21, ${dmg.alpha})`;
-          ctx.font = "bold 13px system-ui";
+          ctx.font = "bold 13px 'Lora', Georgia, serif";
           ctx.textAlign = "center";
           ctx.fillText(`-${dmg.value}`, dmg.x, dmg.y);
           remainingDamage.push(dmg);
@@ -535,7 +590,7 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
   const handleClick = () => {
     if (!hoveredTile) return;
     const existing = structures.find(
-      (s) => s.gridX === hoveredTile.x && s.gridY === hoveredTile.y
+      (s) => s.gridX === hoveredTile.x && s.gridY === hoveredTile.y,
     );
 
     if (existing) {
@@ -546,13 +601,15 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
   };
 
   return (
-    <div className="relative flex flex-col items-center justify-center p-3 bg-slate-950/80 border border-slate-800 rounded-xl shadow-2xl backdrop-blur-md">
-      <div className="flex items-center justify-between w-full px-4 py-2 border-b border-slate-800 text-xs text-slate-400">
+    <div className="relative flex flex-col items-center justify-center p-3 panel-parchment rounded-md shadow-2xl">
+      <div className="flex items-center justify-between w-full px-4 py-2 border-b border-rule text-xs text-ink-faint">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-          <span>Tactical Perimeter // 12x12 Redoubt Grid</span>
+          {/* <span className="w-2.5 h-2.5 rounded-full bg-accent-500 animate-ping"></span> */}
+          <span className="kicker text-[10px]">
+            Tactical Perimeter — 12x12 Redoubt Grid
+          </span>
         </div>
-        <div>
+        <div className="font-mono">
           {hoveredTile
             ? `Sector: [${hoveredTile.x}, ${hoveredTile.y}]`
             : "Hover to target sector"}
@@ -566,21 +623,25 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHoveredTile(null)}
         onClick={handleClick}
-        className="cursor-crosshair rounded-lg my-2 shadow-inner"
+        className="cursor-crosshair rounded-sm my-2 shadow-inner border border-rule"
       />
 
-      <div className="flex items-center gap-4 text-xs text-slate-400 pb-1">
+      <div className="flex items-center gap-4 text-xs text-ink-faint pb-1">
         <span className="flex items-center gap-1">
-          <span className="w-3 h-3 bg-slate-700 rounded-sm inline-block"></span> Rampart
+          <span className="w-3 h-3 bg-ink-soft rounded-sm inline-block"></span>{" "}
+          Rampart
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-3 h-3 bg-yellow-500 rounded-sm inline-block"></span> Ballista
+          <span className="w-3 h-3 bg-[#c9a227] rounded-sm inline-block"></span>{" "}
+          Ballista
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-3 h-3 bg-cyan-500 rounded-sm inline-block"></span> Sunstone Pylon
+          <span className="w-3 h-3 bg-accent-500 rounded-sm inline-block"></span>{" "}
+          Sunstone Pylon
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-3 h-3 bg-indigo-600 rounded-sm inline-block"></span> Citadel Core
+          <span className="w-3 h-3 bg-accent-900 rounded-sm inline-block"></span>{" "}
+          Citadel Core
         </span>
       </div>
     </div>

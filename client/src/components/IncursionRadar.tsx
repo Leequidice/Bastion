@@ -176,19 +176,19 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-[#7a2318] animate-bounce" />
-                <span className="text-sm font-semibold text-[#7a2318]">
+                <span className="text-sm font-semibold text-blood">
                   {titan.name}
                 </span>
-                <span className="kicker text-[9px] font-bold px-1.5 py-0.5 rounded-sm border border-rule text-ink-soft">
+                <span className="kicker text-[9px] font-bold px-1.5 py-0.5 rounded-sm border border-rule text-blood">
                   {titan.class}
                 </span>
               </div>
-              <span className="kicker text-[9px] font-bold px-2 py-0.5 rounded-sm border border-[#7a2318]/50 text-[#7a2318]">
+              <span className="kicker text-[9px] font-bold px-2 py-0.5 rounded-sm border border-[#7a2318]/50 text-blood">
                 Marching
               </span>
             </div>
 
-            <p className="text-xs text-ink-soft italic">
+            <p className="text-xs text-blood italic">
               "{archetypeInfo.description}"
             </p>
 
@@ -211,7 +211,7 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
 
             {titan.minions.length > 0 && (
               <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-accent-700">
+                <span className="text-[10px] text-blood">
                   Shielded by {titan.minions.length} minion
                   {titan.minions.length === 1 ? "" : "s"} — she takes no damage
                   until they fall
@@ -252,7 +252,7 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
                 <span className="text-ink-faint text-[10px] block">
                   Siege Power
                 </span>
-                <span className="text-[#7a2318] font-bold">
+                <span className="text-blood font-bold">
                   {titan.siegePower} DMG
                 </span>
               </div>
@@ -260,7 +260,7 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
                 <span className="text-ink-faint text-[10px] block">
                   Tactical Counter
                 </span>
-                <span className="text-accent-700 font-bold truncate block">
+                <span className="text-blood font-bold truncate block">
                   {archetypeInfo.weakness}
                 </span>
               </div>
@@ -271,7 +271,7 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
                 <span className="text-ink-faint text-[10px]">
                   Next quirk trigger
                 </span>
-                <span className="text-[#7a2318] font-bold">
+                <span className="text-blood font-bold">
                   {(titan.quirkTimerMs / 1000).toFixed(1)}s
                 </span>
               </div>

@@ -8,6 +8,7 @@ import { BuildMenu } from "./components/BuildMenu";
 import { StructureInspector } from "./components/StructureInspector";
 import { AttestationModal } from "./components/AttestationModal";
 import { Leaderboard } from "./components/Leaderboard";
+import { HowToPlayModal } from "./components/HowToPlayModal";
 import { ExternalLink, HelpCircle } from "lucide-react";
 
 export function App() {
@@ -37,6 +38,7 @@ export function App() {
         totalDefensePower={game.totalDefensePower}
         onHarvest={game.handleHarvest}
         isHarvesting={game.isHarvesting}
+        onOpenHowToPlay={() => game.setIsHowToPlayOpen(true)}
       />
 
       {/* Main Tactical Grid & Defense Command Workspace */}
@@ -141,6 +143,13 @@ export function App() {
       <Leaderboard
         isOpen={game.isLeaderboardOpen}
         onClose={() => game.setIsLeaderboardOpen(false)}
+      />
+
+      {/* How to Play */}
+      <HowToPlayModal
+        isOpen={game.isHowToPlayOpen}
+        onClose={() => game.setIsHowToPlayOpen(false)}
+        hasClaimedLevel15Reward={game.hasClaimedLevel15Reward}
       />
 
       {/* Footer */}

@@ -5,6 +5,7 @@ import {
   TILE_SIZE,
   PADDING,
   LANE_GRID_COLUMN,
+  RAMPART_SWAY_PERIOD_MS,
 } from "../lib/constants";
 import { BattleState, QuirkEvents } from "../lib/battleEngine";
 import towerAsset from "../assets/tower.png";
@@ -488,7 +489,12 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
       if (battleState) {
         const progress =
           1 - battleState.distanceRemaining / battleState.totalDistance;
-        const cx = LANE_X;
+        // While blocked by a Rampart, sway side-to-side instead of advancing —
+        // the visual "grinding against the wall" attack cue.
+        const swayOffset = battleState.blockedByStructureId
+          ? Math.sin((Date.now() / RAMPART_SWAY_PERIOD_MS) * Math.PI * 2) * 18
+          : 0;
+        const cx = LANE_X + swayOffset;
         const cy = LANE_SPAWN_Y + (LANE_WALL_Y - LANE_SPAWN_Y) * progress;
 
         // Titan body size: base titans are +30% over the prior 44px radius (~57px);

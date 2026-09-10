@@ -241,6 +241,11 @@ export const FAUCET_URL = "https://discord.gg/RpCUu6Jc";
 // so a paid action can be blocked with a clear message before ever prompting a signature.
 export const MIN_TX_GAS_BUFFER_CTC = "0.02";
 
+// --- "Reach Level 15" Challenge ---
+// A one-time reward, claimed the moment a commander first reaches this level.
+export const LEVEL_15_CHALLENGE_LEVEL = 15;
+export const LEVEL_15_CHALLENGE_MULTIPLIER = 15;
+
 // --- Titan Class Quirks (tunable) ---
 export const RADIOACTIVE_BASE_DAMAGE_PER_TICK = 40; // Colossus: scaled by proximity (0..1)
 export const ARMORED_HP_BONUS_MULTIPLIER = 1.2; // +10% HP
@@ -249,3 +254,12 @@ export const ARMORED_TIMER_SEQUENCE_MS = [15000, 20000, 25000]; // holds at 2500
 export const FEMALE_TIMER_SEQUENCE_MS = [20000, 30000, 40000]; // holds at 40000 after
 export const FEMALE_MINION_HP_RATIO = 0.2; // each minion = 20% of the Titan's max HP
 export const BEAST_ATTACK_INTERVAL_MS = 4000; // fixed, no escalation
+
+// --- Aegis Rampart Blockade ---
+// A live Rampart directly in the Titan's current lane row halts its advance —
+// the Titan grinds against it instead of marching through, dealing a small
+// percentage of its own max HP to that Rampart on a fixed interval until the
+// Rampart is destroyed, at which point the Titan resumes its march.
+export const RAMPART_BLOCK_DAMAGE_PERCENT_OF_MAXHP = 0.005; // 0.01% of the Titan's max HP
+export const RAMPART_BLOCK_DAMAGE_INTERVAL_MS = 300;
+export const RAMPART_SWAY_PERIOD_MS = 450; // visual side-to-side "attacking" sway while blocked

@@ -12,12 +12,15 @@ import {
   STONE_PER_CTC,
   ENERGY_PER_CTC,
   MIN_TX_GAS_BUFFER_CTC,
+  LEVEL_15_CHALLENGE_LEVEL,
+  LEVEL_15_CHALLENGE_MULTIPLIER,
 } from "../lib/constants";
 import { PlacedStructure } from "../components/CityCanvas";
 import { Resources, MarketConditionState } from "../components/ResourceBar";
 import { generateAttestationPayload, AttestationPayload } from "../lib/attestationHelper";
 import { createBattleStateForLevel, tickBattle, BattleState, QuirkEvents } from "../lib/battleEngine";
 import { getState, saveState, requestFaucetDrip } from "../lib/api";
+import hornSoundtrack from "../assets/sounds/horn sound track.mp3";
 import confetti from "canvas-confetti";
 import { ethers } from "ethers";
 
@@ -30,6 +33,7 @@ interface SavedGameState {
   totalRepelled: number;
   totalBreached: number;
   account: string | null;
+  hasClaimedLevel15Reward: boolean;
 }
 
 // Hoisted so a logout/reset can restore exactly this starting layout.
@@ -132,8 +136,11 @@ const INITIAL_RESOURCES: Resources = {
   stone: 240,
   energy: 180,
   food: 200,
-  aegisAlloy: 45,
+  aegisAlloy: 100,
 };
+
+// Stone Quarries also yield Aegis Alloy, at 10% of whatever rate Stone comes in at.
+const ALLOY_YIELD_RATE_OF_STONE = 0.1;
 
 export function useBastionGame() {
   // Settlement Structures Grid
@@ -168,21 +175,27 @@ export function useBastionGame() {
   const [isStarting, setIsStarting] = useState(false);
   const [isHarvesting, setIsHarvesting] = useState(false);
 
+  // "Reach Level 15" challenge: grants a one-time 15x resource multiplier.
+  const [hasClaimedLevel15Reward, setHasClaimedLevel15Reward] = useState(false);
+
   // Refs so the tick interval and effects always read the latest value
   // without needing to be re-created (and re-triggering) every tick.
   const battleStateRef = useRef(battleState);
   const structuresRef = useRef(structures);
   const levelRef = useRef(level);
+  const hasClaimedLevel15RewardRef = useRef(hasClaimedLevel15Reward);
   useEffect(() => {
     battleStateRef.current = battleState;
     structuresRef.current = structures;
     levelRef.current = level;
+    hasClaimedLevel15RewardRef.current = hasClaimedLevel15Reward;
   });
 
   // Latest Cryptographic Proof for Inspector Modal
   const [latestPayload, setLatestPayload] = useState<AttestationPayload | null>(null);
   const [isProofModalOpen, setIsProofModalOpen] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  const [isHowToPlayOpen, setIsHowToPlayOpen] = useState(false);
 
   // Web3 Wallet State (populated from Privy)
   const { ready, authenticated, login, logout, getAccessToken } = usePrivy();
@@ -240,6 +253,7 @@ export function useBastionGame() {
     setHealError(null);
     setUpgradeError(null);
     setIsNewUser(false);
+    setHasClaimedLevel15Reward(false);
   }, []);
 
   // Harvest Settlement Resources
@@ -249,12 +263,14 @@ export function useBastionGame() {
       const stoneGain = Math.floor((100 * 10000) / marketCondition.stoneMultiplier);
       const energyGain = Math.floor((80 * marketCondition.energyMultiplier) / 10000);
       const foodGain = Math.floor((120 * 10000) / marketCondition.foodScarcity);
+      const alloyGain = Math.floor(stoneGain * ALLOY_YIELD_RATE_OF_STONE);
 
       setResources((prev) => ({
         ...prev,
         stone: prev.stone + stoneGain,
         energy: prev.energy + energyGain,
         food: prev.food + foodGain,
+        aegisAlloy: prev.aegisAlloy + alloyGain,
       }));
       setIsHarvesting(false);
     }, 600);
@@ -535,6 +551,11 @@ export function useBastionGame() {
     if (battleStateRef.current) return; // a wave is already running
     setIsStarting(true);
 
+    // Play the horn once, only in response to this click.
+    new Audio(hornSoundtrack).play().catch((err) => {
+      console.error("Failed to play horn soundtrack:", err);
+    });
+
     setTimeout(() => {
       // Poll an Attestcoin proof for flavor/inspection; the wave's difficulty
       // itself is driven by the deterministic level-scaling formulas below.
@@ -629,6 +650,21 @@ export function useBastionGame() {
       try {
         confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
       } catch (_) {}
+
+      // "Reach Level 15" challenge: a one-time 15x multiplier on everything in the vault.
+      const nextLevel = levelRef.current + 1;
+      if (nextLevel === LEVEL_15_CHALLENGE_LEVEL && !hasClaimedLevel15RewardRef.current) {
+        setResources((prev) => ({
+          stone: prev.stone * LEVEL_15_CHALLENGE_MULTIPLIER,
+          energy: prev.energy * LEVEL_15_CHALLENGE_MULTIPLIER,
+          food: prev.food * LEVEL_15_CHALLENGE_MULTIPLIER,
+          aegisAlloy: prev.aegisAlloy * LEVEL_15_CHALLENGE_MULTIPLIER,
+        }));
+        setHasClaimedLevel15Reward(true);
+        try {
+          confetti({ particleCount: 250, spread: 120, origin: { y: 0.5 } });
+        } catch (_) {}
+      }
 
       const timeout = setTimeout(() => {
         const nextLevel = levelRef.current + 1;
@@ -763,6 +799,7 @@ export function useBastionGame() {
           setWallStatus(saved.wallStatus);
           setTotalRepelled(saved.totalRepelled);
           setTotalBreached(saved.totalBreached);
+          setHasClaimedLevel15Reward(saved.hasClaimedLevel15Reward ?? false);
         } else {
           // No saved state at all — this is the first time we've ever seen this
           // account, so it qualifies for the one-time faucet drip.
@@ -820,6 +857,7 @@ export function useBastionGame() {
             totalRepelled,
             totalBreached,
             account,
+            hasClaimedLevel15Reward,
           } satisfies SavedGameState);
         } catch (err) {
           console.error("Failed to save state:", err);
@@ -839,6 +877,7 @@ export function useBastionGame() {
     totalRepelled,
     totalBreached,
     account,
+    hasClaimedLevel15Reward,
     getAccessToken,
   ]);
 
@@ -866,12 +905,15 @@ export function useBastionGame() {
     setIsProofModalOpen,
     isLeaderboardOpen,
     setIsLeaderboardOpen,
+    isHowToPlayOpen,
+    setIsHowToPlayOpen,
     isContinuing,
     continueError,
     healingType,
     healError,
     upgradingType,
     upgradeError,
+    hasClaimedLevel15Reward,
     getUpgradeAllFeeCTC,
     account,
     balance,

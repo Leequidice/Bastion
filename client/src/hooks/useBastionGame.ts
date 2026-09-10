@@ -14,6 +14,8 @@ import {
   MIN_TX_GAS_BUFFER_CTC,
   LEVEL_15_CHALLENGE_LEVEL,
   LEVEL_15_CHALLENGE_MULTIPLIER,
+  MAX_GAME_NAME_LENGTH,
+  RESOURCE_PACKS,
 } from "../lib/constants";
 import { PlacedStructure } from "../components/CityCanvas";
 import { Resources, MarketConditionState } from "../components/ResourceBar";
@@ -34,6 +36,7 @@ interface SavedGameState {
   totalBreached: number;
   account: string | null;
   hasClaimedLevel15Reward: boolean;
+  gameName: string | null;
 }
 
 // Hoisted so a logout/reset can restore exactly this starting layout.
@@ -196,6 +199,11 @@ export function useBastionGame() {
   const [isProofModalOpen, setIsProofModalOpen] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isHowToPlayOpen, setIsHowToPlayOpen] = useState(false);
+  const [isDashboardOpen, setIsDashboardOpen] = useState(false);
+  const [isResourcePackModalOpen, setIsResourcePackModalOpen] = useState(false);
+
+  // Commander profile
+  const [gameName, setGameName] = useState<string | null>(null);
 
   // Web3 Wallet State (populated from Privy)
   const { ready, authenticated, login, logout, getAccessToken } = usePrivy();
@@ -217,6 +225,10 @@ export function useBastionGame() {
   // Per-structure-type "Upgrade All" flow, triggered from the build palette (on-chain fee)
   const [upgradingType, setUpgradingType] = useState<string | null>(null);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
+
+  // Resource pack purchase flow (on-chain fee)
+  const [purchasingPackId, setPurchasingPackId] = useState<string | null>(null);
+  const [purchasePackError, setPurchasePackError] = useState<string | null>(null);
 
   // Faucet drip: true for the window between "no saved state found" (brand new
   // account) and the one-time drip request resolving.
@@ -252,8 +264,10 @@ export function useBastionGame() {
     setContinueError(null);
     setHealError(null);
     setUpgradeError(null);
+    setPurchasePackError(null);
     setIsNewUser(false);
     setHasClaimedLevel15Reward(false);
+    setGameName(null);
   }, []);
 
   // Harvest Settlement Resources
@@ -533,6 +547,62 @@ export function useBastionGame() {
     [structures, wallets, balance, getUpgradeAllFeeCTC]
   );
 
+  // Purchase a Resource Pack (Basic / Standard+ / Mega) — a flat on-chain fee that
+  // grants a bundle of Stone/Energy/Food/Alloy on top of whatever the player already has.
+  const handlePurchaseResourcePack = useCallback(
+    async (packId: string) => {
+      const pack = RESOURCE_PACKS.find((p) => p.id === packId);
+      if (!pack) return;
+
+      const wallet = wallets[0];
+      if (!wallet) {
+        setPurchasePackError("Connect a wallet first.");
+        return;
+      }
+
+      const required = Number(pack.priceCTC) + Number(MIN_TX_GAS_BUFFER_CTC);
+      if (Number(balance) < required) {
+        setPurchasePackError(
+          `You need at least ${required.toFixed(2)} tCTC to cover this (have ${balance}). Visit the faucet to top up.`
+        );
+        return;
+      }
+
+      setPurchasingPackId(packId);
+      setPurchasePackError(null);
+
+      try {
+        const injected = await wallet.getEthereumProvider();
+        const provider = new ethers.BrowserProvider(injected);
+        const signer = await provider.getSigner();
+        const tx = await signer.sendTransaction({
+          to: TREASURY_ADDRESS,
+          value: ethers.parseEther(pack.priceCTC),
+        });
+        await tx.wait();
+
+        setResources((prev) => ({
+          stone: prev.stone + pack.resources.stone,
+          energy: prev.energy + pack.resources.energy,
+          food: prev.food + pack.resources.food,
+          aegisAlloy: prev.aegisAlloy + pack.resources.aegisAlloy,
+        }));
+      } catch (err) {
+        console.error("Resource pack payment failed:", err);
+        setPurchasePackError("Transaction failed or was rejected.");
+      } finally {
+        setPurchasingPackId(null);
+      }
+    },
+    [wallets, balance]
+  );
+
+  // Update the commander's chosen display name (used on the leaderboard), trimmed and length-capped.
+  const handleUpdateGameName = useCallback((name: string) => {
+    const trimmed = name.trim().slice(0, MAX_GAME_NAME_LENGTH);
+    setGameName(trimmed || null);
+  }, []);
+
   // Remove a structure from the grid, freeing its tile (no refund). The Citadel Core cannot be removed.
   const handleRemoveStructure = useCallback(
     (structureId: string) => {
@@ -800,6 +870,7 @@ export function useBastionGame() {
           setTotalRepelled(saved.totalRepelled);
           setTotalBreached(saved.totalBreached);
           setHasClaimedLevel15Reward(saved.hasClaimedLevel15Reward ?? false);
+          setGameName(saved.gameName ?? null);
         } else {
           // No saved state at all — this is the first time we've ever seen this
           // account, so it qualifies for the one-time faucet drip.
@@ -858,6 +929,7 @@ export function useBastionGame() {
             totalBreached,
             account,
             hasClaimedLevel15Reward,
+            gameName,
           } satisfies SavedGameState);
         } catch (err) {
           console.error("Failed to save state:", err);
@@ -878,6 +950,7 @@ export function useBastionGame() {
     totalBreached,
     account,
     hasClaimedLevel15Reward,
+    gameName,
     getAccessToken,
   ]);
 
@@ -907,12 +980,20 @@ export function useBastionGame() {
     setIsLeaderboardOpen,
     isHowToPlayOpen,
     setIsHowToPlayOpen,
+    isDashboardOpen,
+    setIsDashboardOpen,
+    isResourcePackModalOpen,
+    setIsResourcePackModalOpen,
+    gameName,
+    handleUpdateGameName,
     isContinuing,
     continueError,
     healingType,
     healError,
     upgradingType,
     upgradeError,
+    purchasingPackId,
+    purchasePackError,
     hasClaimedLevel15Reward,
     getUpgradeAllFeeCTC,
     account,
@@ -926,6 +1007,7 @@ export function useBastionGame() {
     handleUpgradeStructure,
     handleHealAllOfType,
     handleUpgradeAllOfType,
+    handlePurchaseResourcePack,
     handleRemoveStructure,
     handleStartWave,
     handleRestart,

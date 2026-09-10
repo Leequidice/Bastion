@@ -9,6 +9,8 @@ import { StructureInspector } from "./components/StructureInspector";
 import { AttestationModal } from "./components/AttestationModal";
 import { Leaderboard } from "./components/Leaderboard";
 import { HowToPlayModal } from "./components/HowToPlayModal";
+import { DashboardModal } from "./components/DashboardModal";
+import { ResourcePackModal } from "./components/ResourcePackModal";
 import { ExternalLink, HelpCircle } from "lucide-react";
 
 export function App() {
@@ -25,6 +27,7 @@ export function App() {
         onSwitchNetwork={game.handleSwitchNetwork}
         onOpenProofModal={() => game.setIsProofModalOpen(true)}
         onOpenLeaderboard={() => game.setIsLeaderboardOpen(true)}
+        onOpenDashboard={() => game.setIsDashboardOpen(true)}
         isSandboxMode={game.isSandboxMode}
         onToggleSandbox={() => game.setIsSandboxMode(!game.isSandboxMode)}
         onLogout={game.handleLogout}
@@ -39,6 +42,7 @@ export function App() {
         onHarvest={game.handleHarvest}
         isHarvesting={game.isHarvesting}
         onOpenHowToPlay={() => game.setIsHowToPlayOpen(true)}
+        onOpenResourcePacks={() => game.setIsResourcePackModalOpen(true)}
       />
 
       {/* Main Tactical Grid & Defense Command Workspace */}
@@ -150,6 +154,28 @@ export function App() {
         isOpen={game.isHowToPlayOpen}
         onClose={() => game.setIsHowToPlayOpen(false)}
         hasClaimedLevel15Reward={game.hasClaimedLevel15Reward}
+      />
+
+      {/* Commander Dashboard */}
+      <DashboardModal
+        isOpen={game.isDashboardOpen}
+        onClose={() => game.setIsDashboardOpen(false)}
+        account={game.account}
+        gameName={game.gameName}
+        onUpdateGameName={game.handleUpdateGameName}
+        level={game.level}
+        highestLevelReached={game.highestLevelReached}
+        totalRepelled={game.totalRepelled}
+        totalBreached={game.totalBreached}
+      />
+
+      {/* Resource Packs */}
+      <ResourcePackModal
+        isOpen={game.isResourcePackModalOpen}
+        onClose={() => game.setIsResourcePackModalOpen(false)}
+        onPurchase={game.handlePurchaseResourcePack}
+        purchasingPackId={game.purchasingPackId}
+        purchasePackError={game.purchasePackError}
       />
 
       {/* Footer */}

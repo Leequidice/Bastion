@@ -246,6 +246,46 @@ export const MIN_TX_GAS_BUFFER_CTC = "0.02";
 export const LEVEL_15_CHALLENGE_LEVEL = 15;
 export const LEVEL_15_CHALLENGE_MULTIPLIER = 15;
 
+// --- Commander Dashboard ---
+export const MAX_GAME_NAME_LENGTH = 24;
+
+// --- Resource Packs (paid, via on-chain tCTC transaction to TREASURY_ADDRESS) ---
+export interface ResourcePackResources {
+  stone: number;
+  energy: number;
+  food: number;
+  aegisAlloy: number;
+}
+
+export interface ResourcePack {
+  id: string;
+  name: string;
+  priceCTC: string;
+  resources: ResourcePackResources;
+}
+
+const BASIC_PACK_RESOURCES: ResourcePackResources = {
+  stone: 3000,
+  energy: 3000,
+  food: 3000,
+  aegisAlloy: 500,
+};
+
+function scaleResourcePack(multiplier: number): ResourcePackResources {
+  return {
+    stone: Math.round(BASIC_PACK_RESOURCES.stone * multiplier),
+    energy: Math.round(BASIC_PACK_RESOURCES.energy * multiplier),
+    food: Math.round(BASIC_PACK_RESOURCES.food * multiplier),
+    aegisAlloy: Math.round(BASIC_PACK_RESOURCES.aegisAlloy * multiplier),
+  };
+}
+
+export const RESOURCE_PACKS: ResourcePack[] = [
+  { id: "basic", name: "Basic", priceCTC: "10", resources: scaleResourcePack(1) },
+  { id: "standard-plus", name: "Standard+", priceCTC: "20", resources: scaleResourcePack(2) },
+  { id: "mega", name: "Mega", priceCTC: "50", resources: scaleResourcePack(2.5) },
+];
+
 // --- Titan Class Quirks (tunable) ---
 export const RADIOACTIVE_BASE_DAMAGE_PER_TICK = 40; // Colossus: scaled by proximity (0..1)
 export const ARMORED_HP_BONUS_MULTIPLIER = 1.2; // +10% HP

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Hammer, Zap, Wheat, Shield, Sparkles, RefreshCw, BookOpen } from "lucide-react";
+import { Hammer, Zap, Wheat, Shield, Sparkles, RefreshCw, BookOpen, Plus } from "lucide-react";
 
 export interface Resources {
   stone: number;
@@ -22,6 +22,7 @@ interface ResourceBarProps {
   onHarvest: () => void;
   isHarvesting: boolean;
   onOpenHowToPlay: () => void;
+  onOpenResourcePacks: () => void;
 }
 
 interface ResourceInfo {
@@ -39,6 +40,7 @@ export const ResourceBar: React.FC<ResourceBarProps> = ({
   onHarvest,
   isHarvesting,
   onOpenHowToPlay,
+  onOpenResourcePacks,
 }) => {
   const [hoveredResource, setHoveredResource] = useState<string | null>(null);
 
@@ -145,6 +147,15 @@ export const ResourceBar: React.FC<ResourceBarProps> = ({
             )}
           </div>
         ))}
+
+        <button
+          onClick={onOpenResourcePacks}
+          title="Buy a Resource Pack"
+          aria-label="Buy a Resource Pack"
+          className="w-7 h-7 rounded-sm border border-accent-500/60 text-accent-300 hover:bg-accent-900/40 transition-colors cursor-pointer flex items-center justify-center"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
       </div>
 
       {/* How to Play */}

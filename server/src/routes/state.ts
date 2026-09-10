@@ -25,8 +25,15 @@ router.put("/", requireAuth, async (req, res) => {
   // Keep the public leaderboard in sync with this save. GT ensures a score never regresses.
   if (typeof body.highestLevelReached === "number") {
     await redis.zadd(LEADERBOARD_LEVELS_KEY, "GT", "CH", body.highestLevelReached, req.userId!);
-    if (typeof body.account === "string" && body.account) {
-      await redis.hset(LEADERBOARD_NAMES_KEY, req.userId!, body.account);
+    // Prefer the player's chosen game name; fall back to their wallet address.
+    const displayName =
+      typeof body.gameName === "string" && body.gameName.trim()
+        ? body.gameName.trim()
+        : typeof body.account === "string" && body.account
+        ? body.account
+        : null;
+    if (displayName) {
+      await redis.hset(LEADERBOARD_NAMES_KEY, req.userId!, displayName);
     }
   }
 

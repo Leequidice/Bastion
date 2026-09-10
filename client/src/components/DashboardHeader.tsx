@@ -23,6 +23,7 @@ interface DashboardHeaderProps {
   onSwitchNetwork: () => void;
   onOpenProofModal: () => void;
   onOpenLeaderboard: () => void;
+  onOpenDashboard: () => void;
   isSandboxMode: boolean;
   onToggleSandbox: () => void;
   onLogout: () => void;
@@ -37,6 +38,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   onSwitchNetwork,
   onOpenProofModal,
   onOpenLeaderboard,
+  onOpenDashboard,
   // isSandboxMode,
   // onToggleSandbox,
   onLogout,
@@ -173,11 +175,13 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             {isAccountMenuOpen && (
               <div className="absolute right-0 mt-2 w-56 rounded-sm panel-dark shadow-xl shadow-black/40 overflow-hidden z-50 font-body normal-case">
                 <button
-                  disabled
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-dark-muted opacity-50 cursor-not-allowed"
-                  title="Coming soon"
+                  onClick={() => {
+                    setIsAccountMenuOpen(false);
+                    onOpenDashboard();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-dark-text hover:bg-dark-rule/10 transition-colors cursor-pointer"
                 >
-                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  <LayoutDashboard className="w-3.5 h-3.5 text-accent-300" />
                   Dashboard
                 </button>
                 <button

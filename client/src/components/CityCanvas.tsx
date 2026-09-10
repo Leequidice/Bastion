@@ -1,13 +1,78 @@
 import React, { useRef, useEffect, useState } from "react";
 import {
   BUILDINGS,
-  COLOSSI_ARCHETYPES,
   GRID_SIZE,
   TILE_SIZE,
   PADDING,
   LANE_GRID_COLUMN,
 } from "../lib/constants";
 import { BattleState, QuirkEvents } from "../lib/battleEngine";
+import towerAsset from "../assets/tower.png";
+import ballistaAsset from "../assets/ballista.png";
+import crystalAsset from "../assets/crystal.png";
+import quarryAsset from "../assets/quarry.png";
+import farmlandAsset from "../assets/farmland.png";
+import solarShrineAsset from "../assets/solar_shrine.png";
+import lavaGolemAsset from "../assets/lava_golem.png";
+import spiderAsset from "../assets/spider.png";
+import mechBoarAsset from "../assets/mech_boar.png";
+import lightningElementalAsset from "../assets/lightning_elemental.png";
+import lightningShardAsset from "../assets/lightning_shard.png";
+import fireAsset from "../assets/fire.png";
+import arrowAsset from "../assets/arrow_1.png";
+import citadelAsset from "../assets/Citadel.png";
+
+// Structure art — loaded once at module scope since it's shared across every
+// CityCanvas instance and every placed structure of that type.
+const CITADEL_IMAGE = new Image();
+CITADEL_IMAGE.src = citadelAsset;
+const RAMPART_IMAGE = new Image();
+RAMPART_IMAGE.src = towerAsset;
+const BALLISTA_IMAGE = new Image();
+BALLISTA_IMAGE.src = ballistaAsset;
+const SUNSTONE_PYLON_IMAGE = new Image();
+SUNSTONE_PYLON_IMAGE.src = crystalAsset;
+const QUARRY_IMAGE = new Image();
+QUARRY_IMAGE.src = quarryAsset;
+const FARM_IMAGE = new Image();
+FARM_IMAGE.src = farmlandAsset;
+const ENERGY_COLLECTOR_IMAGE = new Image();
+ENERGY_COLLECTOR_IMAGE.src = solarShrineAsset;
+
+// Titan art, keyed by archetype index (see COLOSSI_ARCHETYPES in constants.ts).
+const MOUNTAIN_COLOSSUS_IMAGE = new Image();
+MOUNTAIN_COLOSSUS_IMAGE.src = lavaGolemAsset;
+const DREAD_STRIDER_IMAGE = new Image();
+DREAD_STRIDER_IMAGE.src = spiderAsset;
+const IRONCLAD_GORGER_IMAGE = new Image();
+IRONCLAD_GORGER_IMAGE.src = mechBoarAsset;
+const TEMPEST_GOLIATH_IMAGE = new Image();
+TEMPEST_GOLIATH_IMAGE.src = lightningElementalAsset;
+const TITAN_IMAGES_BY_ARCHETYPE: Record<number, HTMLImageElement> = {
+  0: MOUNTAIN_COLOSSUS_IMAGE,
+  1: DREAD_STRIDER_IMAGE,
+  2: IRONCLAD_GORGER_IMAGE,
+  3: TEMPEST_GOLIATH_IMAGE,
+};
+const MINION_IMAGE = new Image();
+MINION_IMAGE.src = lightningShardAsset;
+
+// Attack effects: Rampart hurls fire, Ballista fires an arrow, Sunstone fires a beam.
+const FIRE_IMAGE = new Image();
+FIRE_IMAGE.src = fireAsset;
+const ARROW_IMAGE = new Image();
+ARROW_IMAGE.src = arrowAsset;
+
+// Canvas 2D `filter` string applied per condition so a single piece of art can
+// still communicate Intact/Damaged/Destroyed without needing three source images.
+function conditionFilter(
+  condition: "Intact" | "Damaged" | "Destroyed",
+): string {
+  if (condition === "Damaged")
+    return "sepia(0.35) saturate(0.7) brightness(0.85)";
+  if (condition === "Destroyed") return "grayscale(0.85) brightness(0.45)";
+  return "none";
+}
 
 export interface PlacedStructure {
   id: string;
@@ -35,6 +100,8 @@ interface Projectile {
   damage: number;
   progress: number; // 0 to 1
   type: "ballista" | "beam";
+  /** Structure type that fired this shot, when known — drives which attack art/effect renders. */
+  sourceType?: string;
 }
 
 interface Particle {
@@ -76,11 +143,21 @@ const LANE_SPAWN_Y = 18;
 const LANE_WALL_Y = PADDING + GRID_SIZE * TILE_SIZE + 18;
 
 const PROJECTILE_COLORS: Record<string, string> = {
-  RAMPART: "#94a3b8",
+  RAMPART: "#f97316",
   BALLISTA: "#facc15",
-  SUNSTONE_PYLON: "#06b6d4",
-  CITADEL: "#a855f7",
+  SUNSTONE_PYLON: "#7dd3fc", // light/sky blue
+  CITADEL: "#fbbf24", // yellow, with orange edge tint below
 };
+
+// Beam edge tint per source — the gradient fades from this to the beam's core
+// color and back, so each beam-firing structure gets its own glow character.
+const BEAM_EDGE_COLORS: Record<string, string> = {
+  SUNSTONE_PYLON: "rgba(224, 242, 254, 0)", // light blue, fading to transparent
+  CITADEL: "rgba(251, 146, 60, 0)", // orange, fading to transparent
+};
+
+// Beam thickness (3rem @ 16px base) for the glowing gradient beam effect (Sunstone/Citadel).
+const BEAM_THICKNESS = 48;
 
 const PROJECTILE_TYPES: Record<string, "ballista" | "beam"> = {
   RAMPART: "ballista",
@@ -173,6 +250,7 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
         damage: def.defensePower * s.level,
         progress: 0,
         type: PROJECTILE_TYPES[s.type] || "ballista",
+        sourceType: s.type,
       });
     });
 
@@ -273,78 +351,96 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
 
         // Base tile fill
         if (s.type === "CITADEL") {
-          ctx.fillStyle = "#1e1b4b";
-          ctx.fillRect(tx + 2, ty + 2, TILE_SIZE - 4, TILE_SIZE - 4);
-          // Glowing inner crest
-          ctx.fillStyle = "#6366f1";
-          ctx.beginPath();
-          ctx.arc(tx + TILE_SIZE / 2, ty + TILE_SIZE / 2, 14, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = "#fbbf24";
-          ctx.beginPath();
-          ctx.arc(tx + TILE_SIZE / 2, ty + TILE_SIZE / 2, 6, 0, Math.PI * 2);
-          ctx.fill();
+          // Same footprint as the old placeholder: inset 2px, (TILE_SIZE - 4) square.
+          ctx.filter = conditionFilter(s.condition);
+          if (CITADEL_IMAGE.complete) {
+            ctx.drawImage(
+              CITADEL_IMAGE,
+              tx + 2,
+              ty + 2,
+              TILE_SIZE - 4,
+              TILE_SIZE - 4,
+            );
+          }
+          ctx.filter = "none";
         } else if (s.type === "RAMPART") {
-          ctx.fillStyle =
-            s.condition === "Destroyed"
-              ? "#450a0a"
-              : s.condition === "Damaged"
-                ? "#713f12"
-                : "#334155";
-          ctx.fillRect(tx + 3, ty + 3, TILE_SIZE - 6, TILE_SIZE - 6);
-          // Crenelations
-          ctx.fillStyle = "#64748b";
-          ctx.fillRect(tx + 4, ty + 4, 8, 8);
-          ctx.fillRect(tx + TILE_SIZE - 12, ty + 4, 8, 8);
-          ctx.fillRect(tx + 4, ty + TILE_SIZE - 12, 8, 8);
-          ctx.fillRect(tx + TILE_SIZE - 12, ty + TILE_SIZE - 12, 8, 8);
+          // Same footprint as the old placeholder: inset 3px, (TILE_SIZE - 6) square.
+          ctx.filter = conditionFilter(s.condition);
+          if (RAMPART_IMAGE.complete) {
+            ctx.drawImage(
+              RAMPART_IMAGE,
+              tx + 3,
+              ty + 3,
+              TILE_SIZE - 6,
+              TILE_SIZE - 6,
+            );
+          }
+          ctx.filter = "none";
         } else if (s.type === "BALLISTA") {
-          ctx.fillStyle = "#1c1917";
-          ctx.fillRect(tx + 4, ty + 4, TILE_SIZE - 8, TILE_SIZE - 8);
-          // Turret crossbar
-          ctx.strokeStyle = "#eab308";
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.moveTo(tx + 8, ty + TILE_SIZE / 2);
-          ctx.lineTo(tx + TILE_SIZE - 8, ty + TILE_SIZE / 2);
-          ctx.moveTo(tx + TILE_SIZE / 2, ty + 8);
-          ctx.lineTo(tx + TILE_SIZE / 2, ty + TILE_SIZE - 8);
-          ctx.stroke();
+          // Same footprint as the old placeholder: inset 4px, (TILE_SIZE - 8) square.
+          ctx.filter = conditionFilter(s.condition);
+          if (BALLISTA_IMAGE.complete) {
+            ctx.drawImage(
+              BALLISTA_IMAGE,
+              tx + 4,
+              ty + 4,
+              TILE_SIZE - 8,
+              TILE_SIZE - 8,
+            );
+          }
+          ctx.filter = "none";
         } else if (s.type === "SUNSTONE_PYLON") {
-          ctx.fillStyle = "#083344";
-          ctx.fillRect(tx + 4, ty + 4, TILE_SIZE - 8, TILE_SIZE - 8);
-          // Pylon crystal
-          ctx.fillStyle = "#06b6d4";
-          ctx.beginPath();
-          ctx.moveTo(tx + TILE_SIZE / 2, ty + 6);
-          ctx.lineTo(tx + TILE_SIZE - 10, ty + TILE_SIZE / 2);
-          ctx.lineTo(tx + TILE_SIZE / 2, ty + TILE_SIZE - 6);
-          ctx.lineTo(tx + 10, ty + TILE_SIZE / 2);
-          ctx.closePath();
-          ctx.fill();
+          // Same footprint as the old placeholder: inset 4px, (TILE_SIZE - 8) square.
+          ctx.filter = conditionFilter(s.condition);
+          if (SUNSTONE_PYLON_IMAGE.complete) {
+            ctx.drawImage(
+              SUNSTONE_PYLON_IMAGE,
+              tx + 4,
+              ty + 4,
+              TILE_SIZE - 8,
+              TILE_SIZE - 8,
+            );
+          }
+          ctx.filter = "none";
         } else if (s.type === "QUARRY") {
-          ctx.fillStyle = "#292524";
-          ctx.fillRect(tx + 3, ty + 3, TILE_SIZE - 6, TILE_SIZE - 6);
-          ctx.fillStyle = "#78716c";
-          ctx.beginPath();
-          ctx.arc(tx + 16, ty + 18, 8, 0, Math.PI * 2);
-          ctx.arc(tx + 32, ty + 28, 10, 0, Math.PI * 2);
-          ctx.fill();
+          // Same footprint as the old placeholder: inset 3px, (TILE_SIZE - 6) square.
+          ctx.filter = conditionFilter(s.condition);
+          if (QUARRY_IMAGE.complete) {
+            ctx.drawImage(
+              QUARRY_IMAGE,
+              tx + 3,
+              ty + 3,
+              TILE_SIZE - 6,
+              TILE_SIZE - 6,
+            );
+          }
+          ctx.filter = "none";
         } else if (s.type === "FARM") {
-          ctx.fillStyle = "#14532d";
-          ctx.fillRect(tx + 3, ty + 3, TILE_SIZE - 6, TILE_SIZE - 6);
-          // Crop rows
-          ctx.fillStyle = "#84cc16";
-          ctx.fillRect(tx + 6, ty + 8, TILE_SIZE - 12, 4);
-          ctx.fillRect(tx + 6, ty + 20, TILE_SIZE - 12, 4);
-          ctx.fillRect(tx + 6, ty + 32, TILE_SIZE - 12, 4);
+          // Same footprint as the old placeholder: inset 3px, (TILE_SIZE - 6) square.
+          ctx.filter = conditionFilter(s.condition);
+          if (FARM_IMAGE.complete) {
+            ctx.drawImage(
+              FARM_IMAGE,
+              tx + 3,
+              ty + 3,
+              TILE_SIZE - 6,
+              TILE_SIZE - 6,
+            );
+          }
+          ctx.filter = "none";
         } else if (s.type === "ENERGY_COLLECTOR") {
-          ctx.fillStyle = "#3b0764";
-          ctx.fillRect(tx + 3, ty + 3, TILE_SIZE - 6, TILE_SIZE - 6);
-          ctx.fillStyle = "#c084fc";
-          ctx.beginPath();
-          ctx.arc(tx + TILE_SIZE / 2, ty + TILE_SIZE / 2, 10, 0, Math.PI * 2);
-          ctx.fill();
+          // Same footprint as the old placeholder: inset 3px, (TILE_SIZE - 6) square.
+          ctx.filter = conditionFilter(s.condition);
+          if (ENERGY_COLLECTOR_IMAGE.complete) {
+            ctx.drawImage(
+              ENERGY_COLLECTOR_IMAGE,
+              tx + 3,
+              ty + 3,
+              TILE_SIZE - 6,
+              TILE_SIZE - 6,
+            );
+          }
+          ctx.filter = "none";
         }
 
         // Mini Durability Bar
@@ -394,47 +490,62 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
           1 - battleState.distanceRemaining / battleState.totalDistance;
         const cx = LANE_X;
         const cy = LANE_SPAWN_Y + (LANE_WALL_Y - LANE_SPAWN_Y) * progress;
-        const archetypeInfo =
-          COLOSSI_ARCHETYPES[battleState.titan.archetype] ||
-          COLOSSI_ARCHETYPES[0];
+
+        // Titan body size: base titans are +30% over the prior 44px radius (~57px);
+        // the Mountain Colossus is bigger still, at 1.8x that base (~103px).
+        const BASE_TITAN_RADIUS = 57;
+        const COLOSSUS_TITAN_RADIUS = Math.round(BASE_TITAN_RADIUS * 1.8);
+        const titanRadius =
+          battleState.titan.class === "colossus"
+            ? COLOSSUS_TITAN_RADIUS
+            : BASE_TITAN_RADIUS;
+        const titanSize = titanRadius * 2;
+        // Aura/ring radii scale with the active titan's own size, not a fixed constant.
+        const auraRadius = titanRadius * 1.64;
 
         // Colossus: pulsing radioactive ring, intensifying as it nears the Wall
         if (battleState.titan.class === "colossus") {
-          const pulse = 4 * Math.sin(Date.now() / 150);
+          const pulse = titanRadius * 0.18 * Math.sin(Date.now() / 150);
           ctx.strokeStyle = `rgba(132, 204, 22, ${0.3 + progress * 0.5})`;
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(cx, cy, 42 + pulse, 0, Math.PI * 2);
+          ctx.arc(cx, cy, titanRadius * 1.91 + pulse, 0, Math.PI * 2);
           ctx.stroke();
         }
 
         // Threat Aura
         ctx.fillStyle = "rgba(239, 68, 68, 0.2)";
         ctx.beginPath();
-        ctx.arc(cx, cy, 36, 0, Math.PI * 2);
+        ctx.arc(cx, cy, auraRadius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Titan Body Silhouette
-        ctx.fillStyle = archetypeInfo.color;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 22, 0, Math.PI * 2);
-        ctx.fill();
+        // Titan Body
+        const titanImage =
+          TITAN_IMAGES_BY_ARCHETYPE[battleState.titan.archetype] ||
+          MOUNTAIN_COLOSSUS_IMAGE;
+        if (titanImage.complete) {
+          ctx.drawImage(
+            titanImage,
+            cx - titanRadius,
+            cy - titanRadius,
+            titanSize,
+            titanSize,
+          );
+        }
 
-        // Glowing Eyes / Core
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.arc(cx - 6, cy - 4, 3, 0, Math.PI * 2);
-        ctx.arc(cx + 6, cy - 4, 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Female: shielding minions, drifting either side of her
+        // Female: shielding minions orbit her, spaced evenly around a ring sized
+        // to clear the body (minion art itself stays a fixed size).
+        const orbitRadius = titanRadius + 24;
+        const orbitAngle = Date.now() / 600;
         battleState.titan.minions.forEach((minion, i) => {
-          const mx = cx + (i === 0 ? -34 : 34);
-          const my = cy + 8;
-          ctx.fillStyle = "#22d3ee";
-          ctx.beginPath();
-          ctx.arc(mx, my, 9, 0, Math.PI * 2);
-          ctx.fill();
+          const angle =
+            orbitAngle +
+            (i * Math.PI * 2) / Math.max(1, battleState.titan.minions.length);
+          const mx = cx + Math.cos(angle) * orbitRadius;
+          const my = cy + Math.sin(angle) * orbitRadius * 0.6; // squashed for the top-down lane view
+          if (MINION_IMAGE.complete) {
+            ctx.drawImage(MINION_IMAGE, mx - 9, my - 9, 18, 18);
+          }
 
           const minionHpPercent = Math.max(0, minion.hp / minion.maxHp);
           ctx.fillStyle = "#5a4c36";
@@ -444,13 +555,13 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
         });
 
         // Name, Level & Class Badge
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = "#8b0000";
         ctx.font = "bold 11px 'Lora', Georgia, serif";
         ctx.textAlign = "center";
         ctx.fillText(
           `${battleState.titan.name} (Lv.${battleState.titan.level}) [${battleState.titan.class.toUpperCase()}]`,
           cx,
-          cy - 30,
+          cy - titanRadius - 16,
         );
 
         // Titan Health Bar
@@ -461,36 +572,116 @@ export const CityCanvas: React.FC<CityCanvasProps> = ({
           battleState.titan.hp / battleState.titan.maxHp,
         );
         ctx.fillStyle = "#5a4c36";
-        ctx.fillRect(cx - barWidth / 2, cy - 24, barWidth, barHeight);
+        ctx.fillRect(
+          cx - barWidth / 2,
+          cy - titanRadius - 6,
+          barWidth,
+          barHeight,
+        );
         ctx.fillStyle =
           hpPercent > 0.5 ? "#22c55e" : hpPercent > 0.2 ? "#eab308" : "#ef4444";
         ctx.fillRect(
           cx - barWidth / 2,
-          cy - 24,
+          cy - titanRadius - 6,
           barWidth * hpPercent,
           barHeight,
         );
         ctx.strokeStyle = "#8a7a5f";
         ctx.lineWidth = 1;
-        ctx.strokeRect(cx - barWidth / 2, cy - 24, barWidth, barHeight);
+        ctx.strokeRect(
+          cx - barWidth / 2,
+          cy - titanRadius - 6,
+          barWidth,
+          barHeight,
+        );
       }
 
       // 6. Update and Draw Projectiles
       const remainingProjectiles: Projectile[] = [];
       projectilesRef.current.forEach((proj) => {
-        proj.progress += 0.08;
+        // Fireballs travel 30% slower than every other attack.
+        proj.progress += proj.sourceType === "RAMPART" ? 0.056 : 0.08;
         if (proj.progress < 1) {
           proj.currentX =
             proj.startX + (proj.targetX - proj.startX) * proj.progress;
           proj.currentY =
             proj.startY + (proj.targetY - proj.startY) * proj.progress;
 
-          ctx.strokeStyle = proj.color;
-          ctx.lineWidth = proj.type === "beam" ? 3 : 2;
-          ctx.beginPath();
-          ctx.moveTo(proj.startX, proj.startY);
-          ctx.lineTo(proj.currentX, proj.currentY);
-          ctx.stroke();
+          if (proj.sourceType === "RAMPART") {
+            // Aegis Rampart: a drifting fireball, glowing orange via canvas shadow blur.
+            if (FIRE_IMAGE.complete) {
+              const size = 26;
+              ctx.save();
+              ctx.shadowColor = "rgba(249, 115, 22, 0.9)";
+              ctx.shadowBlur = 18;
+              ctx.drawImage(
+                FIRE_IMAGE,
+                proj.currentX - size / 2,
+                proj.currentY - size / 2,
+                size,
+                size,
+              );
+              ctx.restore();
+            }
+          } else if (proj.sourceType === "BALLISTA") {
+            // Ballista Bastion: an arrow, rotated to face its direction of travel.
+            if (ARROW_IMAGE.complete) {
+              const angle = Math.atan2(
+                proj.targetY - proj.startY,
+                proj.targetX - proj.startX,
+              );
+              const w = 34;
+              const h = 8;
+              ctx.save();
+              ctx.translate(proj.currentX, proj.currentY);
+              ctx.rotate(angle);
+              ctx.drawImage(ARROW_IMAGE, -w / 2, -h / 2, w, h);
+              ctx.restore();
+            }
+          } else if (proj.type === "beam") {
+            // Sunstone Battery / Citadel: a glowing gradient beam, faded at the
+            // edges and solid-colored at the core, with a drop-shadow-style glow.
+            const dx = proj.currentX - proj.startX;
+            const dy = proj.currentY - proj.startY;
+            const len = Math.sqrt(dx * dx + dy * dy) || 1;
+            const nx = -dy / len;
+            const ny = dx / len;
+            const half = BEAM_THICKNESS / 2;
+
+            ctx.save();
+            ctx.shadowColor = proj.color;
+            ctx.shadowBlur = 18;
+
+            const gradient = ctx.createLinearGradient(
+              proj.startX + nx * half,
+              proj.startY + ny * half,
+              proj.startX - nx * half,
+              proj.startY - ny * half,
+            );
+            const edgeColor =
+              (proj.sourceType && BEAM_EDGE_COLORS[proj.sourceType]) ||
+              "rgba(224, 242, 254, 0)";
+            gradient.addColorStop(0, edgeColor);
+            gradient.addColorStop(0.5, proj.color);
+            gradient.addColorStop(1, edgeColor);
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.moveTo(proj.startX + nx * half, proj.startY + ny * half);
+            ctx.lineTo(proj.currentX + nx * half, proj.currentY + ny * half);
+            ctx.lineTo(proj.currentX - nx * half, proj.currentY - ny * half);
+            ctx.lineTo(proj.startX - nx * half, proj.startY - ny * half);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+          } else {
+            ctx.strokeStyle = proj.color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(proj.startX, proj.startY);
+            ctx.lineTo(proj.currentX, proj.currentY);
+            ctx.stroke();
+          }
 
           // Projectile head spark
           ctx.fillStyle = "#ffffff";

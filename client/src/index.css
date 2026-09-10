@@ -26,6 +26,9 @@
   --color-accent-700: #7d5411;
   --color-accent-900: #3a270d;
 
+  /* Blood red — reserved for Titan text (name, class, lore, stats) */
+  --color-blood: #8b0000;
+
   /* Typography */
   --font-display: "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
   --font-body: "Lora", Georgia, "Times New Roman", serif;

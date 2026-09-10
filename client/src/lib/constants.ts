@@ -69,7 +69,7 @@ export const BUILDINGS: Record<string, BuildingDefinition> = {
     description:
       "Reinforced granite wall designed to absorb devastating blunt siege attacks.",
     icon: "Layers",
-    cooldownTicks: 2, // was 3; shortened 25% (floor, min 1 tick)
+    cooldownTicks: 3, // was 2; the fireball attack's cooldown was raised 30% (round to nearest tick)
   },
   BALLISTA: {
     id: "BALLISTA",

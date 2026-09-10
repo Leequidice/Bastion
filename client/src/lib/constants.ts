@@ -281,9 +281,24 @@ function scaleResourcePack(multiplier: number): ResourcePackResources {
 }
 
 export const RESOURCE_PACKS: ResourcePack[] = [
-  { id: "basic", name: "Basic", priceCTC: "10", resources: scaleResourcePack(1) },
-  { id: "standard-plus", name: "Standard+", priceCTC: "20", resources: scaleResourcePack(2) },
-  { id: "mega", name: "Mega", priceCTC: "50", resources: scaleResourcePack(2.5) },
+  {
+    id: "basic",
+    name: "Basic",
+    priceCTC: "10",
+    resources: scaleResourcePack(1),
+  },
+  {
+    id: "standard-plus",
+    name: "Standard+",
+    priceCTC: "20",
+    resources: scaleResourcePack(2),
+  },
+  {
+    id: "mega",
+    name: "Mega",
+    priceCTC: "50",
+    resources: scaleResourcePack(2.5),
+  },
 ];
 
 // --- Titan Class Quirks (tunable) ---
@@ -300,6 +315,6 @@ export const BEAST_ATTACK_INTERVAL_MS = 4000; // fixed, no escalation
 // the Titan grinds against it instead of marching through, dealing a small
 // percentage of its own max HP to that Rampart on a fixed interval until the
 // Rampart is destroyed, at which point the Titan resumes its march.
-export const RAMPART_BLOCK_DAMAGE_PERCENT_OF_MAXHP = 0.005; // 0.01% of the Titan's max HP
+export const RAMPART_BLOCK_DAMAGE_PERCENT_OF_MAXHP = 1; // 0.01% of the Titan's max HP
 export const RAMPART_BLOCK_DAMAGE_INTERVAL_MS = 300;
 export const RAMPART_SWAY_PERIOD_MS = 450; // visual side-to-side "attacking" sway while blocked

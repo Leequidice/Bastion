@@ -11,6 +11,7 @@ import { Leaderboard } from "./components/Leaderboard";
 import { HowToPlayModal } from "./components/HowToPlayModal";
 import { DashboardModal } from "./components/DashboardModal";
 import { ResourcePackModal } from "./components/ResourcePackModal";
+import { UpgradeAllModal } from "./components/UpgradeAllModal";
 import { ExternalLink, HelpCircle } from "lucide-react";
 
 export function App() {
@@ -126,12 +127,9 @@ export function App() {
             resources={game.resources}
             structures={game.structures}
             onHealAllOfType={game.handleHealAllOfType}
-            onUpgradeAllOfType={game.handleUpgradeAllOfType}
+            onOpenUpgradeAll={game.setUpgradeAllModalType}
             healingType={game.healingType}
             healError={game.healError}
-            upgradingType={game.upgradingType}
-            upgradeError={game.upgradeError}
-            getUpgradeAllFeeCTC={game.getUpgradeAllFeeCTC}
           />
         </div>
       </main>
@@ -176,6 +174,17 @@ export function App() {
         onPurchase={game.handlePurchaseResourcePack}
         purchasingPackId={game.purchasingPackId}
         purchasePackError={game.purchasePackError}
+      />
+
+      {/* Upgrade All — pick a target level */}
+      <UpgradeAllModal
+        structureType={game.upgradeAllModalType}
+        onClose={() => game.setUpgradeAllModalType(null)}
+        structures={game.structures}
+        getPreview={game.getUpgradeAllPreview}
+        onConfirm={game.handleUpgradeAllOfType}
+        isUpgrading={game.upgradingType === game.upgradeAllModalType}
+        upgradeError={game.upgradeError}
       />
 
       {/* Footer */}

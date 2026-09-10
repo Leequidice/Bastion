@@ -225,6 +225,8 @@ export function useBastionGame() {
   // Per-structure-type "Upgrade All" flow, triggered from the build palette (on-chain fee)
   const [upgradingType, setUpgradingType] = useState<string | null>(null);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
+  // Non-null while the Upgrade All target-level modal is open for that structure type.
+  const [upgradeAllModalType, setUpgradeAllModalType] = useState<string | null>(null);
 
   // Resource pack purchase flow (on-chain fee)
   const [purchasingPackId, setPurchasingPackId] = useState<string | null>(null);
@@ -264,6 +266,7 @@ export function useBastionGame() {
     setContinueError(null);
     setHealError(null);
     setUpgradeError(null);
+    setUpgradeAllModalType(null);
     setPurchasePackError(null);
     setIsNewUser(false);
     setHasClaimedLevel15Reward(false);
@@ -459,33 +462,52 @@ export function useBastionGame() {
     [structures, wallets, balance]
   );
 
-  // Compute the tCTC fee to Upgrade All of a given structure type: a flat base
-  // fee plus, if the player is short on Stone/Energy, that shortfall priced in
-  // tCTC via STONE_PER_CTC/ENERGY_PER_CTC (see constants.ts for the rationale).
-  const getUpgradeAllFeeCTC = useCallback(
-    (type: string) => {
-      const eligible = structures.filter(
-        (s) => s.type === type && s.condition === "Intact" && s.level < MAX_STRUCTURE_LEVEL
-      );
-      if (eligible.length === 0) return 0;
-      const stoneCost = eligible.length * 40;
-      const energyCost = eligible.length * 20;
-      const stoneShort = Math.max(0, stoneCost - resources.stone);
-      const energyShort = Math.max(0, energyCost - resources.energy);
-      return Number(UPGRADE_ALL_BASE_FEE_CTC) + stoneShort / STONE_PER_CTC + energyShort / ENERGY_PER_CTC;
+  // Preview what Upgrade All would do for a given structure type and target level:
+  // structures already AT OR ABOVE the target are left alone entirely (no cost, no
+  // change) — only structures below the target jump straight to it, each paying for
+  // exactly the levels *it* gains, never a flat "+N to everyone" that would leave
+  // different starting levels at different ending levels.
+  const getUpgradeAllPreview = useCallback(
+    (type: string, targetLevel: number) => {
+      const clampedTarget = Math.min(Math.max(1, Math.round(targetLevel)), MAX_STRUCTURE_LEVEL);
+      const ofType = structures.filter((s) => s.type === type && s.condition === "Intact");
+      const upgrading = ofType.filter((s) => s.level < clampedTarget);
+
+      let totalStoneCost = 0;
+      let totalEnergyCost = 0;
+      upgrading.forEach((s) => {
+        const delta = clampedTarget - s.level;
+        totalStoneCost += 40 * delta;
+        totalEnergyCost += 20 * delta;
+      });
+
+      const stoneShort = Math.max(0, totalStoneCost - resources.stone);
+      const energyShort = Math.max(0, totalEnergyCost - resources.energy);
+      const feeCTC =
+        upgrading.length === 0
+          ? 0
+          : Number(UPGRADE_ALL_BASE_FEE_CTC) + stoneShort / STONE_PER_CTC + energyShort / ENERGY_PER_CTC;
+
+      return {
+        targetLevel: clampedTarget,
+        eligibleCount: ofType.length,
+        upgradingCount: upgrading.length,
+        skippedCount: ofType.length - upgrading.length,
+        totalStoneCost,
+        totalEnergyCost,
+        feeCTC,
+      };
     },
     [structures, resources]
   );
 
-  // Upgrade every eligible structure of one type (Intact, below the level cap) at
-  // once — gated by an on-chain fee. Any Stone/Energy shortfall is folded into
-  // that fee rather than blocking the upgrade outright.
+  // Upgrade every structure of one type that's below the chosen target level, each
+  // straight to that target — gated by an on-chain fee. Any Stone/Energy shortfall
+  // is folded into that fee rather than blocking the upgrade outright.
   const handleUpgradeAllOfType = useCallback(
-    async (type: string) => {
-      const eligible = structures.filter(
-        (s) => s.type === type && s.condition === "Intact" && s.level < MAX_STRUCTURE_LEVEL
-      );
-      if (eligible.length === 0) return;
+    async (type: string, targetLevel: number) => {
+      const preview = getUpgradeAllPreview(type, targetLevel);
+      if (preview.upgradingCount === 0) return;
 
       const wallet = wallets[0];
       if (!wallet) {
@@ -493,11 +515,7 @@ export function useBastionGame() {
         return;
       }
 
-      const stoneCost = eligible.length * 40;
-      const energyCost = eligible.length * 20;
-      const fee = getUpgradeAllFeeCTC(type);
-      const required = fee + Number(MIN_TX_GAS_BUFFER_CTC);
-
+      const required = preview.feeCTC + Number(MIN_TX_GAS_BUFFER_CTC);
       if (Number(balance) < required) {
         setUpgradeError(
           `You need at least ${required.toFixed(2)} tCTC to cover this (have ${balance}). Visit the faucet to top up.`
@@ -514,29 +532,32 @@ export function useBastionGame() {
         const signer = await provider.getSigner();
         const tx = await signer.sendTransaction({
           to: TREASURY_ADDRESS,
-          value: ethers.parseEther(fee.toFixed(6)),
+          value: ethers.parseEther(preview.feeCTC.toFixed(6)),
         });
         await tx.wait();
 
         setResources((prev) => ({
           ...prev,
-          stone: Math.max(0, prev.stone - stoneCost),
-          energy: Math.max(0, prev.energy - energyCost),
+          stone: Math.max(0, prev.stone - preview.totalStoneCost),
+          energy: Math.max(0, prev.energy - preview.totalEnergyCost),
         }));
         setStructures((prev) =>
           prev.map((s) => {
-            if (s.type !== type || s.condition !== "Intact" || s.level >= MAX_STRUCTURE_LEVEL) return s;
-            const newMax = Math.floor(s.maxDurability * 1.3);
-            return { ...s, level: s.level + 1, maxDurability: newMax, durability: newMax };
+            if (s.type !== type || s.condition !== "Intact" || s.level >= preview.targetLevel) return s;
+            const delta = preview.targetLevel - s.level;
+            const newMax = Math.round(s.maxDurability * Math.pow(1.3, delta));
+            return { ...s, level: preview.targetLevel, maxDurability: newMax, durability: newMax };
           })
         );
         setInspectedStructure((prev) => {
-          if (!prev || prev.type !== type || prev.condition !== "Intact" || prev.level >= MAX_STRUCTURE_LEVEL) {
+          if (!prev || prev.type !== type || prev.condition !== "Intact" || prev.level >= preview.targetLevel) {
             return prev;
           }
-          const newMax = Math.floor(prev.maxDurability * 1.3);
-          return { ...prev, level: prev.level + 1, maxDurability: newMax, durability: newMax };
+          const delta = preview.targetLevel - prev.level;
+          const newMax = Math.round(prev.maxDurability * Math.pow(1.3, delta));
+          return { ...prev, level: preview.targetLevel, maxDurability: newMax, durability: newMax };
         });
+        setUpgradeAllModalType(null);
       } catch (err) {
         console.error("Upgrade All payment failed:", err);
         setUpgradeError("Transaction failed or was rejected.");
@@ -544,7 +565,7 @@ export function useBastionGame() {
         setUpgradingType(null);
       }
     },
-    [structures, wallets, balance, getUpgradeAllFeeCTC]
+    [wallets, balance, getUpgradeAllPreview]
   );
 
   // Purchase a Resource Pack (Basic / Standard+ / Mega) — a flat on-chain fee that
@@ -992,10 +1013,12 @@ export function useBastionGame() {
     healError,
     upgradingType,
     upgradeError,
+    upgradeAllModalType,
+    setUpgradeAllModalType,
     purchasingPackId,
     purchasePackError,
     hasClaimedLevel15Reward,
-    getUpgradeAllFeeCTC,
+    getUpgradeAllPreview,
     account,
     balance,
     networkId,

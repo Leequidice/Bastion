@@ -22,12 +22,9 @@ interface BuildMenuProps {
   resources: Resources;
   structures: PlacedStructure[];
   onHealAllOfType: (type: string) => void;
-  onUpgradeAllOfType: (type: string) => void;
+  onOpenUpgradeAll: (type: string) => void;
   healingType: string | null;
   healError: string | null;
-  upgradingType: string | null;
-  upgradeError: string | null;
-  getUpgradeAllFeeCTC: (type: string) => number;
 }
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -60,12 +57,9 @@ export const BuildMenu: React.FC<BuildMenuProps> = ({
   resources,
   structures,
   onHealAllOfType,
-  onUpgradeAllOfType,
+  onOpenUpgradeAll,
   healingType,
   healError,
-  upgradingType,
-  upgradeError,
-  getUpgradeAllFeeCTC,
 }) => {
   const groups: Array<{ label: string; category: "defense" | "economy" }> = [
     { label: "Defenses", category: "defense" },
@@ -90,8 +84,6 @@ export const BuildMenu: React.FC<BuildMenuProps> = ({
     const canHeal = damagedCount > 0;
     const canUpgrade = upgradeEligibleCount > 0;
     const isHealingThisType = healingType === b.id;
-    const isUpgradingThisType = upgradingType === b.id;
-    const upgradeFee = getUpgradeAllFeeCTC(b.id);
 
     const cardAriaLabel = `${b.name}. Costs ${buildCostSummary(b.cost)}.${
       b.defensePower > 0 ? ` Defense power ${b.defensePower}.` : ""
@@ -159,31 +151,16 @@ export const BuildMenu: React.FC<BuildMenuProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => onUpgradeAllOfType(b.id)}
-              disabled={!canUpgrade || isUpgradingThisType}
-              aria-label={`Upgrade all ${b.name} structures — levels up ${upgradeEligibleCount} eligible of ${ofType.length} placed for ${upgradeFee.toFixed(2)} tCTC`}
-              title={`Upgrade every eligible structure of this type by one level (${upgradeFee.toFixed(2)} tCTC)`}
+              onClick={() => onOpenUpgradeAll(b.id)}
+              disabled={!canUpgrade}
+              aria-label={`Upgrade all ${b.name} structures — choose a target level for ${upgradeEligibleCount} eligible of ${ofType.length} placed`}
+              title="Choose a target level and upgrade every eligible structure of this type up to it"
               className={`!btn-manuscript-dark flex gap-1 items-center justify-center flex-1 py-1.5 rounded-sm text-[10px] ${
-                !canUpgrade || isUpgradingThisType
-                  ? "opacity-80 cursor-not-allowed"
-                  : "cursor-pointer"
+                !canUpgrade ? "opacity-80 cursor-not-allowed" : "cursor-pointer"
               }`}
             >
               <ArrowUpCircle className="w-3 h-3" />
-              <span>
-                {isUpgradingThisType
-                  ? "Confirming..."
-                  : canUpgrade
-                    ? `${upgradeFee.toFixed(2)} tCTC`
-                    : "Upgrade All"}
-              </span>
-              {/* <span>
-                {isUpgradingThisType
-                  ? "Confirming..."
-                  : canUpgrade
-                    ? `Upgrade — ${upgradeFee.toFixed(2)} tCTC`
-                    : "Upgrade All"}
-              </span> */}
+              <span>Upgrade All</span>
             </button>
           </div>
         )}
@@ -208,24 +185,6 @@ export const BuildMenu: React.FC<BuildMenuProps> = ({
           role="alert"
         >
           <span>{healError}</span>
-          <a
-            href={FAUCET_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 self-start text-accent-700 hover:text-accent-900 font-semibold"
-          >
-            <Droplets className="w-3 h-3" />
-            Visit Faucet
-          </a>
-        </div>
-      )}
-
-      {upgradeError && (
-        <div
-          className="text-[11px] text-[#7a2318] border border-[#7a2318]/50 rounded-sm px-2 py-1.5 flex flex-col gap-1"
-          role="alert"
-        >
-          <span>{upgradeError}</span>
           <a
             href={FAUCET_URL}
             target="_blank"

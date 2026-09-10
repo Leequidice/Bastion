@@ -21,6 +21,8 @@ import {
   FEMALE_TIMER_SEQUENCE_MS,
   FEMALE_MINION_HP_RATIO,
   BEAST_ATTACK_INTERVAL_MS,
+  RAMPART_BLOCK_DAMAGE_PERCENT_OF_MAXHP,
+  RAMPART_BLOCK_DAMAGE_INTERVAL_MS,
 } from "./constants";
 
 const STORM_ARCHETYPE_INDEX = 3; // Tempest Goliath — the level 1 "storm" boss
@@ -57,6 +59,8 @@ export interface ActiveTitan {
   quirkTriggerCount: number;
   /** Female class only: shielding minions currently absorbing incoming defense fire. */
   minions: ActiveMinion[];
+  /** Ms remaining until the next chip-damage tick against a blocking Rampart. */
+  wallAttackTimerMs: number;
 }
 
 export type MatchStatus = "active" | "won" | "lost";
@@ -66,6 +70,8 @@ export interface BattleState {
   distanceRemaining: number;
   totalDistance: number;
   matchStatus: MatchStatus;
+  /** Id of the Rampart currently halting the Titan's advance, if any. */
+  blockedByStructureId: string | null;
 }
 
 export interface QuirkEvents {
@@ -128,6 +134,7 @@ export function createTitanForLevel(level: number): ActiveTitan {
     quirkTimerMs: initialQuirkTimerMs(stats.class),
     quirkTriggerCount: 0,
     minions: [],
+    wallAttackTimerMs: RAMPART_BLOCK_DAMAGE_INTERVAL_MS,
   };
 }
 
@@ -140,6 +147,7 @@ export function createBattleStateForLevel(level: number): BattleState {
     distanceRemaining: totalDistance,
     totalDistance,
     matchStatus: "active",
+    blockedByStructureId: null,
   };
 }
 
@@ -258,7 +266,7 @@ export function tickBattle(state: BattleState, structures: PlacedStructure[]): T
   // 2. Defense fire, level-scaled cooldown
   let totalDamage = 0;
   const firedStructureIds: string[] = [];
-  const nextStructures = workingStructures.map((s) => {
+  let nextStructures = workingStructures.map((s) => {
     const def = BUILDINGS[s.type];
     if (!def || !def.cooldownTicks || s.condition === "Destroyed") {
       return s;
@@ -275,6 +283,35 @@ export function tickBattle(state: BattleState, structures: PlacedStructure[]): T
     const effectiveCooldown = getEffectiveCooldownTicks(def.cooldownTicks, s.level);
     return { ...s, cooldownRemaining: effectiveCooldown - 1 };
   });
+
+  // 2b. Aegis Rampart blockade: a live Rampart on the Titan's current row halts
+  // its advance. The Titan grinds it down (a slice of its own max HP per fixed
+  // interval) instead of taking ranged damage — no distance is lost this tick,
+  // and it resumes marching once that Rampart is destroyed.
+  const blockingRampart = nextStructures.find(
+    (s) =>
+      s.type === "RAMPART" &&
+      s.gridX === LANE_GRID_COLUMN &&
+      s.gridY === currentRow &&
+      s.condition !== "Destroyed"
+  );
+
+  let blockedByStructureId: string | null = null;
+  if (blockingRampart) {
+    blockedByStructureId = blockingRampart.id;
+    const wallAttackRemaining = titan.wallAttackTimerMs - TICK_MS;
+    if (wallAttackRemaining <= 0) {
+      const wallDamage = Math.max(1, Math.round(titan.maxHp * RAMPART_BLOCK_DAMAGE_PERCENT_OF_MAXHP));
+      nextStructures = nextStructures.map((s) =>
+        s.id === blockingRampart.id ? applyDurabilityDamage(s, wallDamage) : s
+      );
+      titan.wallAttackTimerMs = RAMPART_BLOCK_DAMAGE_INTERVAL_MS;
+    } else {
+      titan.wallAttackTimerMs = wallAttackRemaining;
+    }
+  } else {
+    titan.wallAttackTimerMs = RAMPART_BLOCK_DAMAGE_INTERVAL_MS;
+  }
 
   // 3. Route damage through Female's shielding minions first
   if (titan.minions.length > 0) {
@@ -298,15 +335,18 @@ export function tickBattle(state: BattleState, structures: PlacedStructure[]): T
   // 4. Win check
   if (titan.hp <= 0) {
     return {
-      state: { ...state, titan: { ...titan, hp: 0 }, matchStatus: "won" },
+      state: { ...state, titan: { ...titan, hp: 0 }, matchStatus: "won", blockedByStructureId },
       structures: nextStructures,
       firedStructureIds,
       quirkEvents,
     };
   }
 
-  // 5. Movement (normal speed + any quirk-triggered bonus, e.g. Armored's sprint)
-  const newDistanceRemaining = Math.max(0, state.distanceRemaining - state.titan.speed - distanceBonus);
+  // 5. Movement — halted entirely while a Rampart blocks the current row,
+  // otherwise normal speed + any quirk-triggered bonus (e.g. Armored's sprint).
+  const newDistanceRemaining = blockedByStructureId
+    ? state.distanceRemaining
+    : Math.max(0, state.distanceRemaining - state.titan.speed - distanceBonus);
 
   return {
     state: {
@@ -314,6 +354,7 @@ export function tickBattle(state: BattleState, structures: PlacedStructure[]): T
       titan,
       distanceRemaining: newDistanceRemaining,
       matchStatus: newDistanceRemaining <= 0 ? "lost" : "active",
+      blockedByStructureId,
     },
     structures: nextStructures,
     firedStructureIds,

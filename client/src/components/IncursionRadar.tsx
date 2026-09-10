@@ -175,7 +175,7 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
           <div className="p-3 border border-[#7a2318]/40 rounded-sm bg-[#7a2318]/5 flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-[#7a2318] animate-bounce" />
+                <AlertTriangle className="w-4 h-4 text-[#7a2318]" />
                 <span className="text-sm font-semibold text-blood">
                   {titan.name}
                 </span>
@@ -184,7 +184,9 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
                 </span>
               </div>
               <span className="kicker text-[9px] font-bold px-2 py-0.5 rounded-sm border border-[#7a2318]/50 text-blood">
-                Marching
+                {battleState.blockedByStructureId
+                  ? "Grinding the Wall"
+                  : "Marching"}
               </span>
             </div>
 

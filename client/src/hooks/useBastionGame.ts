@@ -18,6 +18,7 @@ import { Resources, MarketConditionState } from "../components/ResourceBar";
 import { generateAttestationPayload, AttestationPayload } from "../lib/attestationHelper";
 import { createBattleStateForLevel, tickBattle, BattleState, QuirkEvents } from "../lib/battleEngine";
 import { getState, saveState, requestFaucetDrip } from "../lib/api";
+import hornSoundtrack from "../assets/sounds/horn sound track.mp3";
 import confetti from "canvas-confetti";
 import { ethers } from "ethers";
 
@@ -534,6 +535,11 @@ export function useBastionGame() {
   const handleStartWave = useCallback(() => {
     if (battleStateRef.current) return; // a wave is already running
     setIsStarting(true);
+
+    // Play the horn once, only in response to this click.
+    new Audio(hornSoundtrack).play().catch((err) => {
+      console.error("Failed to play horn soundtrack:", err);
+    });
 
     setTimeout(() => {
       // Poll an Attestcoin proof for flavor/inspection; the wave's difficulty

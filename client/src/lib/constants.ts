@@ -241,6 +241,11 @@ export const FAUCET_URL = "https://discord.gg/RpCUu6Jc";
 // so a paid action can be blocked with a clear message before ever prompting a signature.
 export const MIN_TX_GAS_BUFFER_CTC = "0.02";
 
+// --- "Reach Level 15" Challenge ---
+// A one-time reward, claimed the moment a commander first reaches this level.
+export const LEVEL_15_CHALLENGE_LEVEL = 15;
+export const LEVEL_15_CHALLENGE_MULTIPLIER = 15;
+
 // --- Titan Class Quirks (tunable) ---
 export const RADIOACTIVE_BASE_DAMAGE_PER_TICK = 40; // Colossus: scaled by proximity (0..1)
 export const ARMORED_HP_BONUS_MULTIPLIER = 1.2; // +10% HP

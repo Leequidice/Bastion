@@ -284,15 +284,16 @@ export function tickBattle(state: BattleState, structures: PlacedStructure[]): T
     return { ...s, cooldownRemaining: effectiveCooldown - 1 };
   });
 
-  // 2b. Aegis Rampart blockade: a live Rampart on the Titan's current row halts
-  // its advance. The Titan grinds it down (a slice of its own max HP per fixed
-  // interval) instead of taking ranged damage — no distance is lost this tick,
-  // and it resumes marching once that Rampart is destroyed.
+  // 2b. Aegis Rampart blockade: a live Rampart one row ahead halts the Titan's
+  // advance a full tile short of it. The Titan grinds it down (a slice of its
+  // own max HP per fixed interval) instead of taking ranged damage — no
+  // distance is lost this tick, and it resumes marching once that Rampart is
+  // destroyed.
   const blockingRampart = nextStructures.find(
     (s) =>
       s.type === "RAMPART" &&
       s.gridX === LANE_GRID_COLUMN &&
-      s.gridY === currentRow &&
+      s.gridY === currentRow + 1 &&
       s.condition !== "Destroyed"
   );
 

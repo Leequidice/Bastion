@@ -37,8 +37,8 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   onSwitchNetwork,
   onOpenProofModal,
   onOpenLeaderboard,
-  isSandboxMode,
-  onToggleSandbox,
+  // isSandboxMode,
+  // onToggleSandbox,
   onLogout,
   onConnectAnotherAccount,
 }) => {
@@ -64,14 +64,24 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     <header className="w-full panel-dark backdrop-blur-md px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-40">
       {/* Title & Lore */}
       <div className="flex items-center gap-3">
+        {/* <img
+          src="/bastion_logo.png"
+          alt="bastion logo"
+          className="h-[3rem] w-[3rem] object-cover"
+        /> */}
         <div
-          className="w-10 h-10 rounded-sm flex items-center justify-center border border-accent-500"
+          className="max-w-[4rem] max-h-[4rem] rounded-sm flex items-center justify-center border border-accent-500"
           style={{
             background:
               "linear-gradient(180deg, #7d5a2c 0%, #a97f44 18%, #6b4a20 62%, #3a270d 100%)",
           }}
         >
-          <Shield className="w-5 h-5 text-dark-text" />
+          <img
+            src="/bastion_logo.png"
+            alt="bastion logo"
+            className="h-[3rem] w-[3rem] object-cover"
+          />
+          <Shield className="w-5 h-5 text-dark-text hidden" />
         </div>
         <div>
           <div className="flex items-center gap-2">

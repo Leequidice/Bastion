@@ -1,0 +1,60 @@
+services:
+  # Redis (Render "Key Value" service, Redis-compatible) — backs session/game-state
+  # storage, the leaderboard sorted set, and faucet idempotency/rate-limit keys.
+  - type: keyvalue
+    name: bastion-redis
+    plan: free
+    ipAllowList: []
+
+  # Backend API (Express) — auth verification, Redis-backed state/leaderboard/faucet routes.
+  - type: web
+    name: bastion-server
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: bastion-redis
+          property: connectionString
+      # Set once the static site below has deployed and you have its URL — the two
+      # services can't reference each other's public URL at blueprint-apply time.
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: PRIVY_APP_ID
+        sync: false
+      - key: PRIVY_APP_SECRET
+        sync: false
+      - key: CREDITCOIN_RPC_URL
+        value: https://rpc.cc3-testnet.creditcoin.network
+      - key: OPERATOR_PRIVATE_KEY
+        sync: false
+      - key: DRIP_AMOUNT_CTC
+        value: "1"
+      - key: OPERATOR_MIN_BALANCE_CTC
+        value: "2"
+
+  # Client (Vite SPA), served as a static site.
+  - type: web
+    name: bastion-client
+    runtime: static
+    rootDir: client
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_PRIVY_APP_ID
+        sync: false
+      # Set once bastion-server above has deployed and you have its URL, e.g.
+      # https://bastion-server.onrender.com
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      # SPA fallback so a hard refresh on any non-root path doesn't 404.
+      - type: rewrite
+        source: /*
+        destination: /index.html

@@ -112,7 +112,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         </button>
 
         {/* Mode Toggle */}
-        <button
+        {/* <button
           onClick={onToggleSandbox}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm border font-semibold transition-all cursor-pointer ${
             isSandboxMode
@@ -124,7 +124,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           <span>
             {isSandboxMode ? "Interactive Sandbox" : "Live Testnet Mode"}
           </span>
-        </button>
+        </button> */}
 
         {/* Network Badge */}
         {account && (
@@ -214,7 +214,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         ) : (
           <button
             onClick={onConnectWallet}
-            className="btn-manuscript px-4 py-2 rounded-sm"
+            className="btn-manuscript px-4 py-2 rounded-sm !text-[#d9b877]"
           >
             <Radio className="w-4 h-4" />
             Connect Creditcoin Wallet

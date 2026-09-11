@@ -184,6 +184,19 @@ export async function triggerRealIncursion(
     throw new Error("The Attestcoin prover could not generate a proof for the latest attested block.");
   }
 
+  const provider = signer.provider;
+  if (!provider) {
+    throw new Error("Wallet has no connected provider.");
+  }
+  const deployedCode = await provider.getCode(CONTRACT_ADDRESSES.incursionEngine);
+  if (deployedCode === "0x") {
+    throw new Error(
+      `BastionIncursionEngine has no code at ${CONTRACT_ADDRESSES.incursionEngine} on this network. ` +
+        "It hasn't been deployed here (or the address is stale) — deploy contracts/BastionIncursionEngine.sol " +
+        "to Creditcoin CC3 testnet and update CONTRACT_ADDRESSES.incursionEngine."
+    );
+  }
+
   onStage?.("Confirm in your wallet — verifying on Creditcoin via precompile 0x0FD2...");
   const engine = new ethers.Contract(CONTRACT_ADDRESSES.incursionEngine, INCURSION_ENGINE_ABI, signer);
   const tx = await engine.triggerIncursionCheck(
@@ -199,6 +212,13 @@ export async function triggerRealIncursion(
   if (!receipt) {
     throw new Error("Verification transaction did not confirm.");
   }
+  if (receipt.status !== 1) {
+    throw new Error(
+      "Verification transaction reverted on-chain. This source transaction may already have been used for " +
+        "an earlier incursion (replay protection), or the precompile rejected the proof. Try again — a later " +
+        "attestation will pick a different source transaction."
+    );
+  }
 
   const parsedEvent = receipt.logs
     .map((log: ethers.Log) => {
@@ -211,7 +231,10 @@ export async function triggerRealIncursion(
     .find((parsed: ethers.LogDescription | null) => parsed?.name === "IncursionTriggered");
 
   if (!parsedEvent) {
-    throw new Error("Verification succeeded but no IncursionTriggered event was found in the receipt.");
+    throw new Error(
+      "Verification transaction confirmed but emitted no IncursionTriggered event — the deployed contract at " +
+        "this address may not match the expected ABI."
+    );
   }
 
   return {

@@ -11,6 +11,10 @@ export const CREDITCOIN_TESTNET = {
   proverApiUrl: "https://prover.cc3-testnet.creditcoin.network",
 };
 
+// Public, read-only Sepolia RPC used to locate a real transaction inside a
+// checkpoint Creditcoin has already attested — no wallet or Sepolia funds needed.
+export const SEPOLIA_RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com";
+
 export const SOURCE_CHAINS = {
   SEPOLIA: {
     chainKey: 1,

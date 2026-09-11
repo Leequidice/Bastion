@@ -12,6 +12,7 @@ import { HowToPlayModal } from "./components/HowToPlayModal";
 import { DashboardModal } from "./components/DashboardModal";
 import { ResourcePackModal } from "./components/ResourcePackModal";
 import { UpgradeAllModal } from "./components/UpgradeAllModal";
+import { ToastStack } from "./components/Toast";
 import { ExternalLink, HelpCircle } from "lucide-react";
 
 export function App() {
@@ -46,6 +47,9 @@ export function App() {
         onOpenResourcePacks={() => game.setIsResourcePackModalOpen(true)}
       />
 
+      {/* Toast Notifications — replaces native alert()/confirm() dialogs */}
+      <ToastStack toasts={game.toasts} onDismiss={game.dismissToast} />
+
       {/* Main Tactical Grid & Defense Command Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left / Center Column: 2D City Builder Canvas */}
@@ -72,7 +76,7 @@ export function App() {
                 <strong className="text-ink">Fortify the Redoubt:</strong> Choose Ramparts, Ballistas, and Sunstone Batteries from the palette and place them on empty sectors before the Titan arrives.
               </li>
               <li>
-                <strong className="text-ink">Sound the Horn:</strong> Starting a wave polls an Attestcoin proof from Ethereum Sepolia for flavor while a Titan spawns and begins marching down the lane toward the Wall in real time.
+                <strong className="text-ink">Sound the Horn:</strong> Starting a wave submits a real Ethereum Sepolia proof to Creditcoin's Attestcoin precompile (0x0FD2) via BastionIncursionEngine — the verified on-chain result decides the Titan's archetype and severity as it spawns and begins marching down the lane toward the Wall in real time.
               </li>
               <li>
                 <strong className="text-ink">Automatic Defense:</strong> Every placed defense fires on its own cooldown as the Titan approaches — no manual firing needed. Kill it before it reaches the Wall.
@@ -106,6 +110,9 @@ export function App() {
             onContinue={game.handleContinueFromBreach}
             isContinuing={game.isContinuing}
             continueError={game.continueError}
+            continueFeeCTC={game.continueFeeCTC}
+            liveAttestation={game.liveAttestation}
+            liveAttestationError={game.liveAttestationError}
           />
 
           {/* Structure Inspector (Phase 3 NFT state) */}
@@ -130,6 +137,8 @@ export function App() {
             onOpenUpgradeAll={game.setUpgradeAllModalType}
             healingType={game.healingType}
             healError={game.healError}
+            liveAttestation={game.liveAttestation}
+            liveAttestationError={game.liveAttestationError}
           />
         </div>
       </main>
@@ -185,6 +194,8 @@ export function App() {
         onConfirm={game.handleUpgradeAllOfType}
         isUpgrading={game.upgradingType === game.upgradeAllModalType}
         upgradeError={game.upgradeError}
+        liveAttestation={game.liveAttestation}
+        liveAttestationError={game.liveAttestationError}
       />
 
       {/* Footer */}

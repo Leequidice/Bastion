@@ -88,18 +88,44 @@ const NO_QUIRK_EVENTS: QuirkEvents = {
   radioactiveDamage: 0,
 };
 
-export function getBossStatsForLevel(level: number): BossStats {
-  const archetype = level === 1 ? STORM_ARCHETYPE_INDEX : level % COLOSSI_ARCHETYPES.length;
+/**
+ * Colossus attributes proven on-chain via the Attestcoin Block Prover Precompile
+ * (0x0FD2) for this run's incursion — see BastionIncursionEngine.triggerIncursionCheck.
+ * When present, the archetype and a severity-scaled HP/siege multiplier come from
+ * real, verified cross-chain data rather than being purely level-derived.
+ */
+export interface ChainDerivedIncursion {
+  archetype: number;
+  /** 1-5, as emitted on-chain by BastionIncursionEngine. */
+  severity: number;
+}
+
+export function getBossStatsForLevel(level: number, chainDerived?: ChainDerivedIncursion): BossStats {
+  const archetype = chainDerived
+    ? chainDerived.archetype % COLOSSI_ARCHETYPES.length
+    : level === 1
+      ? STORM_ARCHETYPE_INDEX
+      : level % COLOSSI_ARCHETYPES.length;
   const titanClass = COLOSSI_ARCHETYPES[archetype].class;
 
   let hp = Math.round(BASE_BOSS_HP * Math.pow(1 + HP_GROWTH_RATE, level - 1));
   if (titanClass === "armored") {
     hp = Math.round(hp * ARMORED_HP_BONUS_MULTIPLIER);
   }
+  // Severity (1-5), proven on-chain from the verified cross-chain proof, adds up to
+  // +48% HP/siege on top of the level curve — real attested data changing difficulty,
+  // not just flavor.
+  if (chainDerived) {
+    const severityMultiplier = 1 + (chainDerived.severity - 1) * 0.12;
+    hp = Math.round(hp * severityMultiplier);
+  }
 
   const speed = BASE_TITAN_SPEED * Math.pow(1 + SPEED_GROWTH_RATE, level - 1);
   const totalDistance = BASE_LANE_DISTANCE + LANE_GROWTH_PER_LEVEL * (level - 1);
-  const siegePower = Math.round(50 + hp * 0.05);
+  let siegePower = Math.round(50 + hp * 0.05);
+  if (chainDerived) {
+    siegePower = Math.round(siegePower * (1 + (chainDerived.severity - 1) * 0.12));
+  }
 
   return { hp, maxHp: hp, speed, totalDistance, archetype, siegePower, class: titanClass };
 }
@@ -117,8 +143,8 @@ function initialQuirkTimerMs(titanClass: TitanClass): number | null {
   }
 }
 
-export function createTitanForLevel(level: number): ActiveTitan {
-  const stats = getBossStatsForLevel(level);
+export function createTitanForLevel(level: number, chainDerived?: ChainDerivedIncursion): ActiveTitan {
+  const stats = getBossStatsForLevel(level, chainDerived);
   const archetypeInfo = COLOSSI_ARCHETYPES[stats.archetype];
 
   return {
@@ -138,9 +164,9 @@ export function createTitanForLevel(level: number): ActiveTitan {
   };
 }
 
-export function createBattleStateForLevel(level: number): BattleState {
-  const titan = createTitanForLevel(level);
-  const totalDistance = getBossStatsForLevel(level).totalDistance;
+export function createBattleStateForLevel(level: number, chainDerived?: ChainDerivedIncursion): BattleState {
+  const titan = createTitanForLevel(level, chainDerived);
+  const totalDistance = getBossStatsForLevel(level, chainDerived).totalDistance;
 
   return {
     titan,

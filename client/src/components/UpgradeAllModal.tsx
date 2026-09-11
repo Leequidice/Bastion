@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { X, ArrowUpCircle, Droplets } from "lucide-react";
 import { BUILDINGS, MAX_STRUCTURE_LEVEL, CREDITCOIN_TESTNET, FAUCET_URL } from "../lib/constants";
 import { PlacedStructure } from "./CityCanvas";
+import { AttestationDiscountNote } from "./AttestationDiscountNote";
+import { LiveAttestationSnapshot } from "../lib/attestcoinClient";
 
 export interface UpgradeAllPreview {
   targetLevel: number;
@@ -10,6 +12,8 @@ export interface UpgradeAllPreview {
   skippedCount: number;
   totalStoneCost: number;
   totalEnergyCost: number;
+  /** Pre-discount fee, before the live Attestcoin discount is applied. */
+  baseFeeCTC: number;
   feeCTC: number;
 }
 
@@ -21,6 +25,8 @@ interface UpgradeAllModalProps {
   onConfirm: (type: string, targetLevel: number) => void;
   isUpgrading: boolean;
   upgradeError: string | null;
+  liveAttestation: LiveAttestationSnapshot | null;
+  liveAttestationError: string | null;
 }
 
 export const UpgradeAllModal: React.FC<UpgradeAllModalProps> = ({
@@ -31,6 +37,8 @@ export const UpgradeAllModal: React.FC<UpgradeAllModalProps> = ({
   onConfirm,
   isUpgrading,
   upgradeError,
+  liveAttestation,
+  liveAttestationError,
 }) => {
   const isOpen = structureType !== null;
   const ofType = useMemo(
@@ -133,6 +141,12 @@ export const UpgradeAllModal: React.FC<UpgradeAllModalProps> = ({
               </span>
             </div>
           </section>
+
+          <AttestationDiscountNote
+            snapshot={liveAttestation}
+            error={liveAttestationError}
+            baseFeeCTC={preview.baseFeeCTC}
+          />
 
           <p className="text-[11px] text-ink-faint italic leading-relaxed">
             Every {buildingName} below Level {targetLevel} jumps straight to it — nothing is added on top of

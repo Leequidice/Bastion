@@ -64,6 +64,13 @@ export const HowToPlayModal: React.FC<HowToPlayModalProps> = ({
               reaches it, the Wall falls and the run ends. Repel it, and the next level begins —
               tougher, but more rewarding.
             </p>
+            <p className="text-ink-soft leading-relaxed">
+              "Sound the Horn" isn't just flavor — it signs a small on-chain transaction that
+              verifies a real, attested Ethereum Sepolia checkpoint against Creditcoin's Attestcoin
+              precompile (0x0FD2). The Titan's archetype and severity for that wave come straight
+              from that verified result; you can inspect the real proof and transaction afterward
+              from the Attestcoin icon in the header.
+            </p>
           </section>
 
           {/* Resources */}

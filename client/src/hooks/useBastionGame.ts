@@ -16,12 +16,21 @@ import {
   LEVEL_15_CHALLENGE_MULTIPLIER,
   MAX_GAME_NAME_LENGTH,
   RESOURCE_PACKS,
+  COLOSSI_ARCHETYPES,
+  FAUCET_URL,
 } from "../lib/constants";
 import { PlacedStructure } from "../components/CityCanvas";
 import { Resources, MarketConditionState } from "../components/ResourceBar";
-import { generateAttestationPayload, AttestationPayload } from "../lib/attestationHelper";
 import { createBattleStateForLevel, tickBattle, BattleState, QuirkEvents } from "../lib/battleEngine";
 import { getState, saveState, requestFaucetDrip } from "../lib/api";
+import {
+  triggerRealIncursion,
+  fetchLiveAttestationSnapshot,
+  applyAttestationDiscount,
+  RealIncursionResult,
+  LiveAttestationSnapshot,
+} from "../lib/attestcoinClient";
+import { ToastMessage, ToastVariant } from "../components/Toast";
 import hornSoundtrack from "../assets/sounds/horn sound track.mp3";
 import confetti from "canvas-confetti";
 import { ethers } from "ethers";
@@ -194,9 +203,45 @@ export function useBastionGame() {
     hasClaimedLevel15RewardRef.current = hasClaimedLevel15Reward;
   });
 
-  // Latest Cryptographic Proof for Inspector Modal
-  const [latestPayload, setLatestPayload] = useState<AttestationPayload | null>(null);
+  // Latest real, on-chain-verified Attestcoin proof for the Inspector Modal
+  const [latestPayload, setLatestPayload] = useState<RealIncursionResult | null>(null);
   const [isProofModalOpen, setIsProofModalOpen] = useState(false);
+
+  // Toast notifications (replaces native alert()/confirm() dialogs)
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+  const pushToast = useCallback(
+    (toast: { variant: ToastVariant; message: string; action?: ToastMessage["action"]; autoDismissMs?: number }) => {
+      const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      setToasts((prev) => [...prev, { id, variant: toast.variant, message: toast.message, action: toast.action }]);
+      if (toast.autoDismissMs) {
+        setTimeout(() => dismissToast(id), toast.autoDismissMs);
+      }
+      return id;
+    },
+    [dismissToast]
+  );
+  const updateToast = useCallback(
+    (
+      id: string,
+      patch: { variant?: ToastVariant; message?: string; action?: ToastMessage["action"]; autoDismissMs?: number }
+    ) => {
+      setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+      if (patch.autoDismissMs) {
+        setTimeout(() => dismissToast(id), patch.autoDismissMs);
+      }
+    },
+    [dismissToast]
+  );
+
+  // Live Attestcoin attestation snapshot (real read from the ChainInfo precompile) —
+  // polled in the background and used to price a small live discount into Heal All,
+  // Upgrade All, and Continue After Breach, so real chain data is visible at the
+  // exact moment a player spends tCTC, not just inside the read-only inspector.
+  const [liveAttestation, setLiveAttestation] = useState<LiveAttestationSnapshot | null>(null);
+  const [liveAttestationError, setLiveAttestationError] = useState<string | null>(null);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isHowToPlayOpen, setIsHowToPlayOpen] = useState(false);
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
@@ -243,6 +288,26 @@ export function useBastionGame() {
     const power = def ? def.defensePower * s.level : 0;
     return acc + (s.condition === "Damaged" ? Math.floor(power * 0.5) : power);
   }, 0);
+
+  // Poll the real, live Attestcoin attestation state in the background (independent of
+  // wallet/auth) so Heal All / Upgrade All / Continue can price a live discount off it.
+  const refreshLiveAttestation = useCallback(async () => {
+    try {
+      const snapshot = await fetchLiveAttestationSnapshot();
+      setLiveAttestation(snapshot);
+      setLiveAttestationError(null);
+    } catch (err) {
+      console.error("Failed to refresh live Attestcoin snapshot:", err);
+      setLiveAttestation(null);
+      setLiveAttestationError("Live attestation feed unavailable right now — showing full price.");
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshLiveAttestation();
+    const interval = setInterval(refreshLiveAttestation, 45000);
+    return () => clearInterval(interval);
+  }, [refreshLiveAttestation]);
 
   // Wipe all locally-held game/account state back to a clean slate (logout / session end)
   const resetGameState = useCallback(() => {
@@ -307,7 +372,7 @@ export function useBastionGame() {
         resources.food < def.cost.food ||
         resources.aegisAlloy < def.cost.alloy
       ) {
-        alert("Insufficient resources to construct this fortification!");
+        pushToast({ variant: "error", message: "Insufficient resources to construct this fortification!", autoDismissMs: 4000 });
         return;
       }
 
@@ -341,7 +406,7 @@ export function useBastionGame() {
 
       setStructures((prev) => [...prev, newStructure]);
     },
-    [selectedBuildingId, resources, structures]
+    [selectedBuildingId, resources, structures, pushToast]
   );
 
   // Repair Structure
@@ -419,7 +484,8 @@ export function useBastionGame() {
         return;
       }
 
-      const required = Number(HEAL_ALL_FEE_CTC) + Number(MIN_TX_GAS_BUFFER_CTC);
+      const feeCTC = applyAttestationDiscount(Number(HEAL_ALL_FEE_CTC), liveAttestation);
+      const required = feeCTC + Number(MIN_TX_GAS_BUFFER_CTC);
       if (Number(balance) < required) {
         setHealError(
           `You need at least ${required.toFixed(2)} tCTC to cover this (have ${balance}). Visit the faucet to top up.`
@@ -436,7 +502,7 @@ export function useBastionGame() {
         const signer = await provider.getSigner();
         const tx = await signer.sendTransaction({
           to: TREASURY_ADDRESS,
-          value: ethers.parseEther(HEAL_ALL_FEE_CTC),
+          value: ethers.parseEther(feeCTC.toFixed(6)),
         });
         await tx.wait();
 
@@ -459,7 +525,7 @@ export function useBastionGame() {
         setHealingType(null);
       }
     },
-    [structures, wallets, balance]
+    [structures, wallets, balance, liveAttestation]
   );
 
   // Preview what Upgrade All would do for a given structure type and target level:
@@ -483,10 +549,11 @@ export function useBastionGame() {
 
       const stoneShort = Math.max(0, totalStoneCost - resources.stone);
       const energyShort = Math.max(0, totalEnergyCost - resources.energy);
-      const feeCTC =
+      const baseFeeCTC =
         upgrading.length === 0
           ? 0
           : Number(UPGRADE_ALL_BASE_FEE_CTC) + stoneShort / STONE_PER_CTC + energyShort / ENERGY_PER_CTC;
+      const feeCTC = upgrading.length === 0 ? 0 : applyAttestationDiscount(baseFeeCTC, liveAttestation);
 
       return {
         targetLevel: clampedTarget,
@@ -495,10 +562,11 @@ export function useBastionGame() {
         skippedCount: ofType.length - upgrading.length,
         totalStoneCost,
         totalEnergyCost,
+        baseFeeCTC,
         feeCTC,
       };
     },
-    [structures, resources]
+    [structures, resources, liveAttestation]
   );
 
   // Upgrade every structure of one type that's below the chosen target level, each
@@ -637,24 +705,70 @@ export function useBastionGame() {
     []
   );
 
-  // Start the next Titan wave (level 1 on first call, or the current level after a restart)
-  const handleStartWave = useCallback(() => {
+  // Start the next Titan wave (level 1 on first call, or the current level after a restart).
+  // This is the core Attestcoin flow: it reads a real Creditcoin-attested Ethereum
+  // Sepolia checkpoint, fetches a real proof for it from the Attestcoin prover, and
+  // submits that proof on-chain to BastionIncursionEngine, which verifies it against
+  // the real Block Prover Precompile (0x0FD2) and derives this wave's Colossus from
+  // the verified result — every wave, not just for the inspector modal.
+  const handleStartWave = useCallback(async () => {
     if (battleStateRef.current) return; // a wave is already running
-    setIsStarting(true);
 
-    // Play the horn once, only in response to this click.
+    const wallet = wallets[0];
+    if (!wallet) {
+      pushToast({
+        variant: "error",
+        message: "Connect a wallet first — sounding the horn verifies a real Attestcoin proof on-chain.",
+        autoDismissMs: 6000,
+      });
+      return;
+    }
+
+    const required = Number(MIN_TX_GAS_BUFFER_CTC);
+    if (Number(balance) < required) {
+      pushToast({
+        variant: "error",
+        message: `You need at least ${required.toFixed(2)} tCTC to cover the on-chain verification (have ${balance}).`,
+        action: { label: "Visit Faucet", href: FAUCET_URL },
+        autoDismissMs: 8000,
+      });
+      return;
+    }
+
+    setIsStarting(true);
     new Audio(hornSoundtrack).play().catch((err) => {
       console.error("Failed to play horn soundtrack:", err);
     });
 
-    setTimeout(() => {
-      // Poll an Attestcoin proof for flavor/inspection; the wave's difficulty
-      // itself is driven by the deterministic level-scaling formulas below.
-      setLatestPayload(generateAttestationPayload());
-      setBattleState(createBattleStateForLevel(levelRef.current));
+    const toastId = pushToast({ variant: "pending", message: "Reading the latest Attestcoin-attested Ethereum Sepolia checkpoint..." });
+
+    try {
+      const injected = await wallet.getEthereumProvider();
+      const provider = new ethers.BrowserProvider(injected);
+      const signer = await provider.getSigner();
+
+      const result = await triggerRealIncursion(signer, (stage) => updateToast(toastId, { message: stage }));
+
+      setLatestPayload(result);
+      setBattleState(createBattleStateForLevel(levelRef.current, { archetype: result.archetype, severity: result.severity }));
+
+      const archetypeName = COLOSSI_ARCHETYPES[result.archetype % COLOSSI_ARCHETYPES.length]?.name ?? "Colossus";
+      updateToast(toastId, {
+        variant: "success",
+        message: `Verified on-chain via precompile 0x0FD2 — ${archetypeName} (Severity ${result.severity}/5) confirmed from Sepolia block #${result.sourceBlockHeight.toLocaleString()}.`,
+        autoDismissMs: 7000,
+      });
+    } catch (err) {
+      console.error("Attestcoin incursion trigger failed:", err);
+      updateToast(toastId, {
+        variant: "error",
+        message: err instanceof Error ? err.message : "Attestcoin verification failed. Please try again.",
+        autoDismissMs: 9000,
+      });
+    } finally {
       setIsStarting(false);
-    }, 500);
-  }, []);
+    }
+  }, [wallets, balance, pushToast, updateToast]);
 
   // Start Over: reset the campaign to level 1 after a Wall breach (free, structures/resources untouched)
   const handleRestart = useCallback(() => {
@@ -671,7 +785,8 @@ export function useBastionGame() {
       return;
     }
 
-    const required = Number(CONTINUE_AFTER_BREACH_FEE_CTC) + Number(MIN_TX_GAS_BUFFER_CTC);
+    const feeCTC = applyAttestationDiscount(Number(CONTINUE_AFTER_BREACH_FEE_CTC), liveAttestation);
+    const required = feeCTC + Number(MIN_TX_GAS_BUFFER_CTC);
     if (Number(balance) < required) {
       setContinueError(
         `You need at least ${required.toFixed(2)} tCTC to cover this (have ${balance}). Visit the faucet to top up, or start over for free.`
@@ -688,7 +803,7 @@ export function useBastionGame() {
       const signer = await provider.getSigner();
       const tx = await signer.sendTransaction({
         to: TREASURY_ADDRESS,
-        value: ethers.parseEther(CONTINUE_AFTER_BREACH_FEE_CTC),
+        value: ethers.parseEther(feeCTC.toFixed(6)),
       });
       await tx.wait();
       setWallStatus("standing");
@@ -699,7 +814,7 @@ export function useBastionGame() {
     } finally {
       setIsContinuing(false);
     }
-  }, [wallets, balance]);
+  }, [wallets, balance, liveAttestation]);
 
   // Real-time Battle Tick Loop: advances the Titan and fires ready defenses every TICK_MS
   const isBattleActive = battleState?.matchStatus === "active";
@@ -975,10 +1090,17 @@ export function useBastionGame() {
     getAccessToken,
   ]);
 
+  const continueFeeCTC = applyAttestationDiscount(Number(CONTINUE_AFTER_BREACH_FEE_CTC), liveAttestation);
+
   return {
     structures,
     resources,
     marketCondition,
+    toasts,
+    dismissToast,
+    liveAttestation,
+    liveAttestationError,
+    continueFeeCTC,
     selectedBuildingId,
     setSelectedBuildingId,
     inspectedStructure,

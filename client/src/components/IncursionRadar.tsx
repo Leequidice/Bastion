@@ -12,10 +12,11 @@ import {
 import { BattleState } from "../lib/battleEngine";
 import {
   COLOSSI_ARCHETYPES,
-  CONTINUE_AFTER_BREACH_FEE_CTC,
   CREDITCOIN_TESTNET,
   FAUCET_URL,
 } from "../lib/constants";
+import { AttestationDiscountNote } from "./AttestationDiscountNote";
+import { LiveAttestationSnapshot } from "../lib/attestcoinClient";
 
 interface IncursionRadarProps {
   level: number;
@@ -30,6 +31,9 @@ interface IncursionRadarProps {
   onContinue: () => void;
   isContinuing: boolean;
   continueError: string | null;
+  continueFeeCTC: number;
+  liveAttestation: LiveAttestationSnapshot | null;
+  liveAttestationError: string | null;
 }
 
 export const IncursionRadar: React.FC<IncursionRadarProps> = ({
@@ -45,6 +49,9 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
   onContinue,
   isContinuing,
   continueError,
+  continueFeeCTC,
+  liveAttestation,
+  liveAttestationError,
 }) => {
   const titan = battleState?.titan ?? null;
   const archetypeInfo = titan
@@ -122,9 +129,11 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
             <span>
               {isContinuing
                 ? "Confirming transaction..."
-                : `Continue from Level ${level} — pay ${CONTINUE_AFTER_BREACH_FEE_CTC} ${CREDITCOIN_TESTNET.currencySymbol}`}
+                : `Continue from Level ${level} — pay ${continueFeeCTC.toFixed(2)} ${CREDITCOIN_TESTNET.currencySymbol}`}
             </span>
           </button>
+
+          <AttestationDiscountNote snapshot={liveAttestation} error={liveAttestationError} />
 
           <button
             onClick={onRestart}
@@ -139,10 +148,11 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
         /* Idle: no wave running yet */
         <div className="flex flex-col gap-2">
           <p className="text-xs text-ink-soft leading-relaxed">
-            Fortify your sectors, then sound the horn. The Titan marches down
-            the lane toward the Wall — every defense in range fires
-            automatically as it approaches. Let it reach the Wall and the Wall
-            falls.
+            Fortify your sectors, then sound the horn. Doing so verifies a real
+            Ethereum Sepolia checkpoint on-chain via Creditcoin's Attestcoin precompile
+            (0x0FD2) — that verified data decides which Colossus marches down the lane
+            toward the Wall. Every defense in range fires automatically as it
+            approaches. Let it reach the Wall and the Wall falls.
           </p>
           <button
             onClick={onStartWave}
@@ -152,7 +162,7 @@ export const IncursionRadar: React.FC<IncursionRadarProps> = ({
             <ShieldAlert className="w-4 h-4" />
             <span>
               {isStarting
-                ? "Verifying Attestcoin Proof..."
+                ? "Verifying Attestcoin Proof On-Chain..."
                 : `Sound the Horn — Level ${level}`}
             </span>
           </button>

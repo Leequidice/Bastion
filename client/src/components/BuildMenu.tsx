@@ -1,5 +1,6 @@
 import React from "react";
-import { BUILDINGS, MAX_STRUCTURE_LEVEL, FAUCET_URL } from "../lib/constants";
+import { BUILDINGS, MAX_STRUCTURE_LEVEL, FAUCET_URL, HEAL_ALL_FEE_CTC, UPGRADE_ALL_BASE_FEE_CTC, CREDITCOIN_TESTNET } from "../lib/constants";
+import { applyAttestationDiscount } from "../lib/attestcoinClient";
 import {
   Layers,
   Crosshair,
@@ -15,6 +16,8 @@ import {
 } from "lucide-react";
 import { Resources } from "./ResourceBar";
 import { PlacedStructure } from "./CityCanvas";
+import { AttestationDiscountNote } from "./AttestationDiscountNote";
+import { LiveAttestationSnapshot } from "../lib/attestcoinClient";
 
 interface BuildMenuProps {
   selectedBuildingId: string | null;
@@ -25,6 +28,8 @@ interface BuildMenuProps {
   onOpenUpgradeAll: (type: string) => void;
   healingType: string | null;
   healError: string | null;
+  liveAttestation: LiveAttestationSnapshot | null;
+  liveAttestationError: string | null;
 }
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -60,6 +65,8 @@ export const BuildMenu: React.FC<BuildMenuProps> = ({
   onOpenUpgradeAll,
   healingType,
   healError,
+  liveAttestation,
+  liveAttestationError,
 }) => {
   const groups: Array<{ label: string; category: "defense" | "economy" }> = [
     { label: "Defenses", category: "defense" },
@@ -84,6 +91,8 @@ export const BuildMenu: React.FC<BuildMenuProps> = ({
     const canHeal = damagedCount > 0;
     const canUpgrade = upgradeEligibleCount > 0;
     const isHealingThisType = healingType === b.id;
+    const healFeeCTC = applyAttestationDiscount(Number(HEAL_ALL_FEE_CTC), liveAttestation);
+    const upgradeFeeCTC = applyAttestationDiscount(Number(UPGRADE_ALL_BASE_FEE_CTC), liveAttestation);
 
     const cardAriaLabel = `${b.name}. Costs ${buildCostSummary(b.cost)}.${
       b.defensePower > 0 ? ` Defense power ${b.defensePower}.` : ""
@@ -138,8 +147,8 @@ export const BuildMenu: React.FC<BuildMenuProps> = ({
               type="button"
               onClick={() => onHealAllOfType(b.id)}
               disabled={!canHeal || isHealingThisType}
-              aria-label={`Heal all ${b.name} structures — repairs ${damagedCount} damaged of ${ofType.length} placed, small on-chain fee`}
-              title="Heal every damaged structure of this type (small on-chain fee)"
+              aria-label={`Heal all ${b.name} structures — repairs ${damagedCount} damaged of ${ofType.length} placed for ${healFeeCTC.toFixed(2)} ${CREDITCOIN_TESTNET.currencySymbol}`}
+              title={`Heal every damaged structure of this type — ${healFeeCTC.toFixed(2)} ${CREDITCOIN_TESTNET.currencySymbol} (live Attestcoin-discounted)`}
               className={`!btn-manuscript-dark flex gap-1 flex-1 py-1.5 items-center justify-center rounded-sm text-[10px] ${
                 !canHeal || isHealingThisType
                   ? "opacity-80 cursor-not-allowed"
@@ -153,8 +162,8 @@ export const BuildMenu: React.FC<BuildMenuProps> = ({
               type="button"
               onClick={() => onOpenUpgradeAll(b.id)}
               disabled={!canUpgrade}
-              aria-label={`Upgrade all ${b.name} structures — choose a target level for ${upgradeEligibleCount} eligible of ${ofType.length} placed`}
-              title="Choose a target level and upgrade every eligible structure of this type up to it"
+              aria-label={`Upgrade all ${b.name} structures — choose a target level for ${upgradeEligibleCount} eligible of ${ofType.length} placed, base fee ${upgradeFeeCTC.toFixed(2)} ${CREDITCOIN_TESTNET.currencySymbol}`}
+              title={`Choose a target level and upgrade every eligible structure of this type — base fee ${upgradeFeeCTC.toFixed(2)} ${CREDITCOIN_TESTNET.currencySymbol} (live Attestcoin-discounted)`}
               className={`!btn-manuscript-dark flex gap-1 items-center justify-center flex-1 py-1.5 rounded-sm text-[10px] ${
                 !canUpgrade ? "opacity-80 cursor-not-allowed" : "cursor-pointer"
               }`}
@@ -178,6 +187,8 @@ export const BuildMenu: React.FC<BuildMenuProps> = ({
           Select & click tile
         </span>
       </div>
+
+      <AttestationDiscountNote snapshot={liveAttestation} error={liveAttestationError} />
 
       {healError && (
         <div

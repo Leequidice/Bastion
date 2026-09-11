@@ -11,6 +11,10 @@ export const CREDITCOIN_TESTNET = {
   proverApiUrl: "https://prover.cc3-testnet.creditcoin.network",
 };
 
+// Public, read-only Sepolia RPC used to locate a real transaction inside a
+// checkpoint Creditcoin has already attested — no wallet or Sepolia funds needed.
+export const SEPOLIA_RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com";
+
 export const SOURCE_CHAINS = {
   SEPOLIA: {
     chainKey: 1,
@@ -24,13 +28,18 @@ export const SOURCE_CHAINS = {
   },
 };
 
+// Real contracts, deployed via `npx hardhat run scripts/deploy.js --network creditcoinTestnet`
+// (verified via eth_getCode — all three have real bytecode on Creditcoin CC3 testnet).
 export const CONTRACT_ADDRESSES = {
-  // Configured default addresses (can be overridden by environment or deployment)
-  incursionEngine: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-  economy: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
-  structures: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+  incursionEngine: "0x9b4345B7772bD26dD4A0E94e0bD64Bd1DE15De3c",
+  economy: "0xd69752cd8558c8F154b43F467fE1f769488700fc",
+  structures: "0x364608267A130b487829419B2a14b65CCEE89e1C",
   mockVerifier: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-  seismicBeacon: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+  // NOTE: deploy.js deployed this on Creditcoin (whatever --network was passed), not Sepolia,
+  // so this address has no code on Sepolia. Not used anywhere in the client flow — Sound the
+  // Horn reads arbitrary already-attested Sepolia transactions rather than this beacon
+  // specifically — so it's harmless, but redeploy with --network sepolia if you want a real one.
+  seismicBeacon: "0x00Ab1761113a27C1B7115dFA9C831357B5861342",
 };
 
 export interface BuildingDefinition {
